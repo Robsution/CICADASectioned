@@ -35,10 +35,16 @@ class RegionETGenerator:
         inputs = []
         for dataset_path in datasets_paths:
             inputs.append(
-                h5py.File(dataset_path, "r")["CaloRegions"][:].astype("float32")
+                h5py.File(dataset_path, "r")["phi0_5"][:].astype("float32")
+            )
+            inputs.append(
+                h5py.File(dataset_path, "r")["phi6_11"][:].astype("float32")
+            )
+            inputs.append(
+                h5py.File(dataset_path, "r")["phi12_17"][:].astype("float32")
             )
         X = np.concatenate(inputs)
-        X = np.reshape(X, (-1, 18, 14, 1))
+        X = np.reshape(X, (-1, 6, 14, 1))
         return X
 
     def get_data_split(
@@ -66,7 +72,7 @@ class RegionETGenerator:
             signal_name = dataset["name"]
             for dataset_path in dataset["path"]:
                 X = h5py.File(dataset_path, "r")["CaloRegions"][:].astype("float32")
-                X = np.reshape(X, (-1, 18, 14, 1))
+                X = np.reshape(X, (-1, 6, 14, 1))
                 try:
                     flags = h5py.File(dataset_path, "r")["AcceptanceFlag"][:].astype(
                         "bool"

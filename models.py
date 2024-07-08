@@ -19,7 +19,7 @@ class TeacherAutoencoder:
 
     def get_model(self):
         inputs = Input(shape=self.input_shape, name="teacher_inputs_")
-        x = Reshape((18, 14, 1), name="teacher_reshape")(inputs)
+        x = Reshape((6, 14, 1), name="teacher_reshape")(inputs)
         x = Conv2D(20, (3, 3), strides=1, padding="same", name="teacher_conv2d_1")(x)
         x = Activation("relu", name="teacher_relu_1")(x)
         x = AveragePooling2D((2, 2), name="teacher_pool_1")(x)
@@ -27,8 +27,8 @@ class TeacherAutoencoder:
         x = Activation("relu", name="teacher_relu_2")(x)
         x = Flatten(name="teacher_flatten")(x)
         x = Dense(80, activation="relu", name="teacher_latent")(x)
-        x = Dense(9 * 7 * 30, name="teacher_dense")(x)
-        x = Reshape((9, 7, 30), name="teacher_reshape2")(x)
+        x = Dense(3 * 7 * 30, name="teacher_dense")(x)
+        x = Reshape((3, 7, 30), name="teacher_reshape2")(x)
         x = Activation("relu", name="teacher_relu_3")(x)
         x = Conv2D(30, (3, 3), strides=1, padding="same", name="teacher_conv2d_3")(x)
         x = Activation("relu", name="teacher_relu_4")(x)
@@ -76,7 +76,7 @@ class CicadaV2:
 
     def get_model(self):
         inputs = Input(shape=self.input_shape, name="inputs_")
-        x = Reshape((18, 14, 1), name="reshape")(inputs)
+        x = Reshape((6, 14, 1), name="reshape")(inputs)
         x = QConv2D(
             4,
             (2, 2),

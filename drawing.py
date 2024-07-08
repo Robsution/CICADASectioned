@@ -39,15 +39,15 @@ class Draw:
 
     def plot_regional_deposits(self, deposits: npt.NDArray, mean: float, name: str):
         im = plt.imshow(
-            deposits.reshape(18, 14), vmin=0, vmax=deposits.max(), cmap="Purples"
+            deposits.reshape(6, 14), vmin=0, vmax=deposits.max(), cmap="Purples"
         )
         ax = plt.gca()
         cbar = ax.figure.colorbar(im, ax=ax)
         cbar.ax.set_ylabel(r"Calorimeter E$_T$ deposit (GeV)")
         plt.xticks(np.arange(14), labels=np.arange(4, 18))
         plt.yticks(
-            np.arange(18),
-            labels=np.arange(18)[::-1],
+            np.arange(6),
+            labels=np.arange(6)[::-1],
             rotation=90,
             va="center",
         )
@@ -132,7 +132,7 @@ class Draw:
         ax1.get_yaxis().set_visible(False)
         ax1.set_title("Original", fontsize=18)
         ax1.imshow(
-            deposits_in.reshape(18, 14), vmin=0, vmax=max_deposit, cmap="Purples"
+            deposits_in.reshape(6, 14), vmin=0, vmax=max_deposit, cmap="Purples"
         )
 
         ax2 = plt.subplot(1, 4, 2)
@@ -140,7 +140,7 @@ class Draw:
         ax2.get_yaxis().set_visible(False)
         ax2.set_title("Reconstructed", fontsize=18)
         ax2.imshow(
-            deposits_out.reshape(18, 14), vmin=0, vmax=max_deposit, cmap="Purples"
+            deposits_out.reshape(6, 14), vmin=0, vmax=max_deposit, cmap="Purples"
         )
 
         ax3 = plt.subplot(1, 4, 3)
@@ -149,7 +149,7 @@ class Draw:
         ax3.set_title(rf"|$\Delta$|, MSE: {loss: .2f}", fontsize=18)
 
         im = ax3.imshow(
-            np.abs(deposits_in - deposits_out).reshape(18, 14),
+            np.abs(deposits_in - deposits_out).reshape(6, 14),
             vmin=0,
             vmax=max_deposit,
             cmap="Purples",

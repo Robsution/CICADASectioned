@@ -24,7 +24,7 @@ def dataset_profiling(datasets: dict, prefix: str) -> None:
         X = generator.get_data(dataset["path"])
         print(f"{name} samples: {X.shape[0]}")
         draw.plot_regional_deposits(
-            np.mean(X, axis=0).reshape(18, 14), np.mean(X, axis=(0, 1, 2, 3)), name
+            np.mean(X, axis=0).reshape(6, 14), np.mean(X, axis=(0, 1, 2, 3)), name
         )
         deposits.append(X)
         labels.append(name)

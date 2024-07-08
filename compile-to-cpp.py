@@ -80,12 +80,12 @@ def convert_to_hls4ml_model(keras_model, hls_config, version="1.0.0"):
 def testing(keras_model, hls_model, dataset_signals, dataset_background, version):
     scores = {"scores_hls4ml": {}, "scores_keras": {}}
     for dataset_name, test_vectors in dataset_signals.items():
-        test_vectors = test_vectors.reshape(-1, 252)
+        test_vectors = test_vectors.reshape(-1, 84)
         scores_hls4ml = hls_model.predict(test_vectors)
         scores_keras = keras_model.predict(test_vectors)
         scores["scores_hls4ml"][dataset_name] = scores_hls4ml.flatten()
         scores["scores_keras"][dataset_name] = scores_keras.flatten()
-    test_vectors = dataset_background.reshape(-1, 252)
+    test_vectors = dataset_background.reshape(-1, 84)
     scores_hls4ml = hls_model.predict(test_vectors)
     scores_keras = keras_model.predict(test_vectors)
     scores["scores_hls4ml"]["Background"] = scores_hls4ml.flatten()
