@@ -35,13 +35,13 @@ class RegionETGenerator:
         inputs = []
         for dataset_path in datasets_paths:
             inputs.append(
-                h5py.File(dataset_path, "r")["phi0_5"][:].astype("float32")
+                h5py.File(dataset_path, "r")["CaloRegions1"][:].astype("float32")
             )
             inputs.append(
-                h5py.File(dataset_path, "r")["phi6_11"][:].astype("float32")
+                h5py.File(dataset_path, "r")["CaloRegions2"][:].astype("float32")
             )
             inputs.append(
-                h5py.File(dataset_path, "r")["phi12_17"][:].astype("float32")
+                h5py.File(dataset_path, "r")["CaloRegions3"][:].astype("float32")
             )
         X = np.concatenate(inputs)
         X = np.reshape(X, (-1, 6, 14, 1))

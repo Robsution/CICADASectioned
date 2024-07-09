@@ -162,7 +162,7 @@ class Draw:
         )
 
         plt.savefig(
-            f"{self.output_dir}/{self._parse_name(name)}.png", bbox_inches="tight"
+            f"{self.output_dir}/reconstruction-results-{self._parse_name(name)}.png", bbox_inches="tight"
         )
         plt.close()
 
@@ -182,7 +182,7 @@ class Draw:
         plt.xlabel(r"Anomaly Score")
         plt.legend(loc="center left", bbox_to_anchor=(1, 0.5))
         plt.savefig(
-            f"{self.output_dir}/{self._parse_name(name)}.png", bbox_inches="tight"
+            f"{self.output_dir}/score-dist-{self._parse_name(name)}.png", bbox_inches="tight"
         )
         plt.close()
 
@@ -245,7 +245,7 @@ class Draw:
         plt.ylabel("Signal Efficiency")
         plt.legend(loc="center left", bbox_to_anchor=(1, 0.5))
         plt.savefig(
-            f"{self.output_dir}/{self._parse_name(name)}.png", bbox_inches="tight"
+            f"{self.output_dir}/roc-{self._parse_name(name)}.png", bbox_inches="tight"
         )
         plt.close()
 

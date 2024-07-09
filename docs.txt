@@ -1,0 +1,199 @@
+docs.txt describes the classes, functions, and files in the CICADA repo. The repo can be found here: https://github.com/Princeton-AD/cicada
+
+
+cicada-training.py
+
+    Dependencies:
+        utils.py
+            IsValidFile
+        drawing.py
+            Draw
+        generator.py
+            RegionETGenerator
+        models.py
+            TeacherAutoencoder, CicadaV1, CicadaV2
+
+    Functions:
+        loss(npt.NDArray y_true, npt.NDArray y_pred):
+            returns npt.NDArray rms loss
+        quantize(npt.NDArray arr, tuple precision=(16,8)):
+            returns npt.NDArray rounded to nearest step (step size = 2^-8), clipped 0 to 2^8
+        get_student_targets(Model teacher, RegionETGenerator gen, npt.NDArray X):
+            returns RegionETGenerator with logscaled SE loss
+        train_model(Model model, tf.data.Dataset gen_train, tf.data.Dataset gen_val, int epoch = 1, int steps = 1, callbacks = None, bool verbose = False):
+            returns trained model
+        run_training(dict config, bool eval_only, int epochs = 100, bool verbose = False):
+            Runs training
+        parse_arguments:
+            returns args, config.yml file
+        main:
+            calls parse_arguments()
+            calls run_training()
+
+compile-to-cpp.py
+    Checks hls4ml model outputs against tf outputs
+
+convert-root-to-h5.py
+
+    Dependencies:
+        utils.py
+            IsReadableDir
+
+    class DataSource
+
+    Functions:
+        __init__(self, in_file, tree_name, tree_gen):
+            Initialize
+        __len__(self):
+            returns size
+        AbsoluteFilePaths(Path directory, str extension = “root”):
+            returns file path for each file in directory
+        get_split(int events, npt.NDArray split = [0.6,0.2,0.2]):
+            Returns tuples of range of events for training, validation, testing. Used only if –split argument is used.
+            By default, returns array of int tuples of length 3: [(0, 0.6*events), (0.6*events, 0.2*events), (0.2*events, 0.2*events)]
+        convert(Path input_dir, Path save_path, str calo_tree, str acceptance_tree, bool):
+            Takes in data of tree format, extracts/processes from a 72x56 to 18x14. Write datasets CaloRegions and AcceptanceFlag into save_path.
+        parse_arguments():
+            takes filepath, savepath, –calotree, –acceptance, –split
+        main():
+            parses arguments, runs convert()
+
+dataset-profiling.py
+    ???
+
+drawing.py
+
+    Dependencies: none
+
+    class Draw
+
+    Functions:
+        __init__(self, Path output_dir = Path(“plots”)):
+            Defines color map, output dir
+        _parse_name(self, str name):
+            replaces name with input name, replacing “ “ with “-” and forcing lowercase
+        plot_loss_history(self, npt.NDArray training_loss, npt.NDArray validiation_loss, str name):
+            Plots loss while training and validation across epochs
+            Saves fig “{self.output_dir}/{self._parse_name(name)}.png”
+        plot_regional_deposits(self, npt.NDArray deposits, float mean, str name):
+            Plots calorimeter deposits
+            Saves fig “{self.output_dir}/profiling-mean-deposits-{self._parse_name(name)}.png”
+        plot_spacial_deposits_distribution(self, List[npt.NDArray] deposte, List[str] labels, str name):
+            Plots histogrammed distribution of deposits in both phi and eta directions.
+            Saves fig “{self.output_dir}/profiling-spacial-{self._parse_name(name)}.png”
+        plot_deposits_distribution(self, List[npt.NDArray] deposits, List[str] labels, str name):
+            Plots distribution of deposits in 1d histogram.
+            Saves fig “{self.output_dir}/profiling-deposits-{self._parse_name(name)}.png”
+        plot_reconstruction_results(self, npt.NDArray deposits_in, npt.NDArray deposits_out, float loss, str name):
+            Plots reconstruction results of autoencoder.
+            Saves fig “{self.output_dir}/reconstruction-results-{self._parse_name(name)}.png”
+        plot_anomaly_score_distribution(self, List[npt.NDArray scores, List[str] labels):
+            Plots distribution of anomaly scores in 1d histogram
+            Saves fig “{self.output_dir}/score-dist-{self._parse_name(name)}.png”
+        plot_roc_curve(self, List[npt.NDArray] y_trues, List[npt.NDArray] y_preds, List[str] labels, List[npt.NDArray] inputs, str name, int cv = 3):
+            Plots ROC curve
+            Saves fig “{self.output_dir}/roc-{self._parse_name(name)}.png”
+        plot_compilation_error(self, npt.NDArray scores_keras, npt.NDArray scores_hls4ml, str name):
+            Plots scatter plot of anomaly score and errors between keras/hls4ml.
+            Saves fig “{self.output_dir}/ccompilation-error-{self._parse_name(name)}.png”
+        plot_compilation_error_distribution(self, npt.NDArray scores_keras, npt.NDArray scores_hls4ml, str name):
+            Plots 1d histogram of error distribution between keras and hls4ml.
+            Saves fig “{self.output_dir}/compilation-error-dist-{self._parse_name(name)}.png”
+        plot_cpp_model(self, hls_model, str name):
+            Uses hls4ml.utils.plot_model to plot hls_model.
+            Saves fig “{self.output_dir}/cpp-model-{self._parse_name(name)}.png”
+        plot_roc_curve_comparison(self, dict scores_keras, npt.NDArray scores_hls4ml, str name):
+            Plots roc curves for keras and hls4ml.
+            Saves fig “{self.output_dir}/compilation-roc-{self._parse_name(name)}.png”
+        plot_output_reference(self):
+            Plots misc/output-reference.txt
+            Saves fig “{self.output_dir}/ugt-link-reference.png”
+        plot_results_supervised(self, npt.NDArray grid, list[str] models, list[str] datasets, str name):
+            Plots results of each model.
+            Saves fig “{self.output_dir}/supervised-{self._parse_name(name)}.png”
+
+generator.py
+
+    Dependencies: none
+
+    class RegionETGenerator
+
+    Functions:
+        __init__(self, float train_size=0.5, float val_size=0.1, float test_size=0.4):
+            initializes set sizes, sets random state = 42.
+        get_generator(self, npt.NDArray X, np.NDArray y, int batch_size, bool drop_reminder = False):
+            Returns data.Dataset with random events and large buffer.
+        get_data(self List[Path] datasets_path):
+            Returns npt.NDarray of all data into one array of shape (nEvents, 6, 14, 1)
+        get_data_split(self, List[Path] datasets_paths):
+            Returns Tuple[npt.NDarray, npt.NDarray, npt.NDArray] of train/validation/testing sets
+            Uses sklearn.model_selection.train_test_split to split sets
+        get_benchmark(self, dict datasets, bool filter_acceptance True):
+            Returns Tuple[dict, list]. Returns all data and acceptance.
+            Seems deprecated as it uses ds “AcceptanceFlag”
+
+misc/
+
+    config.yml
+
+        Specifies background, signal, exposure files. output_*.txt files are background files (zero bias).
+
+    output-reference.txt
+
+        ???
+
+    requirements.txt
+
+        Specifies python module requirements.
+
+models/
+
+models.py
+
+    Dependencies: none
+
+    class TeacherAutoencoder
+
+    Functions:
+        __init__:
+            initialize
+        get_model:
+            creates and returns tf.keras.models Model object
+
+    class CicadaV1
+
+    Functions:
+        __init__:
+            intialize
+        get_model:
+            creates and returns tf.keras.models Model object
+
+    class CicadaV2
+
+    Functions:
+        __init__:
+            intialize
+        get_model:
+            creates and returns tf.keras.models Model object
+
+plots/
+
+README.md
+
+    Displays information
+
+utils.py
+
+    Dependencies: none
+
+    class IsReadableDir
+
+    Functions:
+        __call__:
+            determines path/directory readability
+
+    class IsValidFile
+
+    Functions:
+        __call__:
+            determines file validity
