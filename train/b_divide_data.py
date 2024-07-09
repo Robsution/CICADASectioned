@@ -10,11 +10,11 @@ import warnings
 warnings.filterwarnings("ignore")
 
 # define files
-f = ROOT.TFile("A_histos.root", "READ")
+f = ROOT.TFile("/afs/hep.wisc.edu/home/andrewji/public/CICADASectionedData/A_histos.root", "READ")
 fwrite = h5py.File("phi_sliced.h5", "a")
 
 # record data from histos to np array
-nEvents = 4777
+nEvents = f.GetNkeys()
 data = np.zeros((nEvents,14,18))
 
 # delete dataset if it already exists
