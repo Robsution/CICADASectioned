@@ -47,10 +47,40 @@ class RegionETGenerator:
         X = np.reshape(X, (-1, 6, 14, 1))
         return X
 
+    def get_sectioned_data(self, datasets_paths: List[Path]) -> npt.NDArray:
+        inputs = []
+        for dataset_path in datasets_paths:
+            inputs.append(
+                h5py.File(dataset_path, "r")["CaloRegions1"][:].astype("float32")
+            )
+            inputs.append(
+                h5py.File(dataset_path, "r")["CaloRegions2"][:].astype("float32")
+            )
+            inputs.append(
+                h5py.File(dataset_path, "r")["CaloRegions3"][:].astype("float32")
+            )
+        X = np.swapaxes(np.array(inputs), 0, 1) # only for small test dataset
+        X = np.reshape(X, (-1, 3, 6, 14, 1))
+        return X
+
     def get_data_split(
         self, datasets_paths: List[Path]
     ) -> Tuple[npt.NDArray, npt.NDArray, npt.NDArray]:
         X = self.get_data(datasets_paths)
+        X_train, X_test = train_test_split(
+            X, test_size=self.test_size, random_state=self.random_state
+        )
+        X_train, X_val = train_test_split(
+            X_train,
+            test_size=self.val_size / (self.val_size + self.train_size),
+            random_state=self.random_state,
+        )
+        return (X_train, X_val, X_test)
+
+    def get_sectioned_data_split(
+        self, datasets_paths: List[Path]
+    ) -> Tuple[npt.NDArray, npt.NDArray, npt.NDArray]:
+        X = self.get_sectioned_data(datasets_paths)
         X_train, X_test = train_test_split(
             X, test_size=self.test_size, random_state=self.random_state
         )

@@ -19,13 +19,17 @@ background:
  - path:
    - '/eos/project/c/cicada-project/data/2023/Background/EZB0_RunC_0.h5'
    - '/eos/project/c/cicada-project/data/2023/Background/EZB0_RunC_1.h5'
-   - '/eos/project/c/cicada-project/data/2023/Background/EZB0_RunC_2.h5' 
+   - '/eos/project/c/cicada-project/data/2023/Background/EZB0_RunC_2.h5'
    name: '2023 EZB Run C'
    use: False
  - path:
-   - '/home/rafael/CICADAFirstBuild/cicada/train/phi_sliced.hdf5' 
+   - '/afs/hep.wisc.edu/home/andrewji/public/CICADASectionedData/test/phi_sliced.h5'
    name: 'Test Training Set'
    use: True
+ - path:
+   - '/afs/hep.wisc.edu/home/andrewji/public/CICADASectionedData/h5/B_phi_sliced.h5'
+   name: 'Training Set'
+   use: False
 signal:
  - path:
    - '/eos/project/c/cicada-project/data/2023/Signal/SUEP.h5'

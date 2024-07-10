@@ -17,3 +17,4 @@ tabulate==0.8.9
 pydot==1.4.2
 graphviz==0.20.1
 torch==2.3.1
+tqdm==4.66.4

@@ -17,7 +17,7 @@ class TeacherAutoencoder:
     def __init__(self, input_shape: tuple):
         self.input_shape = input_shape
 
-    def get_model(self):
+    def get_model(self, name="teacher"):
         inputs = Input(shape=self.input_shape, name="teacher_inputs_")
         x = Reshape((6, 14, 1), name="teacher_reshape")(inputs)
         x = Conv2D(20, (3, 3), strides=1, padding="same", name="teacher_conv2d_1")(x)
@@ -43,14 +43,14 @@ class TeacherAutoencoder:
             padding="same",
             name="teacher_outputs",
         )(x)
-        return Model(inputs, outputs, name="teacher")
+        return Model(inputs, outputs, name=name)
 
 
 class CicadaV1:
     def __init__(self, input_shape: tuple):
         self.input_shape = input_shape
 
-    def get_model(self):
+    def get_model(self, name="cicada-v1"):
         inputs = Input(shape=self.input_shape, name="inputs_")
         x = QDenseBatchnorm(
             16,
@@ -67,14 +67,14 @@ class CicadaV1:
             name="dense2",
         )(x)
         outputs = QActivation("quantized_relu(16, 8)", name="outputs")(x)
-        return Model(inputs, outputs, name="cicada-v1")
+        return Model(inputs, outputs, name=name)
 
 
 class CicadaV2:
     def __init__(self, input_shape: tuple):
         self.input_shape = input_shape
 
-    def get_model(self):
+    def get_model(self, name="cicada-v2"):
         inputs = Input(shape=self.input_shape, name="inputs_")
         x = Reshape((6, 14, 1), name="reshape")(inputs)
         x = QConv2D(
@@ -104,4 +104,4 @@ class CicadaV2:
             name="dense2",
         )(x)
         outputs = QActivation("quantized_relu(16, 8)", name="outputs")(x)
-        return Model(inputs, outputs, name="cicada-v2")
+        return Model(inputs, outputs, name=name)

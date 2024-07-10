@@ -15,18 +15,20 @@ void unpack(ROOT::RVec<UShort_t> column) {
     h.Write("h");
 }
 
-int a_test(){
+int a_get_data(){
 	gROOT->ProcessLine("gErrorIgnoreLevel = 2001;");
-	for (int i = 1; i < 691; i++){
-		if (i==448 || i==543 || i==645 || i==656) {
-			continue;
-		}
+	for (int i = 6; i < 10; i++){
 		string temp("/afs/hep.wisc.edu/home/andrewji/public/CICADASectionedData/histos/A_histos_" + std::to_string(i) + ".root");
 		const char* tempname = temp.c_str();
 		TFile f(tempname, "RECREATE");
-		ROOT::RDataFrame df("CICADAv2p1p2Ntuplizer/L1TCaloSummaryOutput", 
-			"/hdfs/store/user/aloelige/ZeroBias/Paper_Ntuples_27Mar2024/240327_152836/0000/output_" + std::to_string(i) + ".root");
-		df.Foreach(unpack, {"modelInput"});
+		for (int j = 1; j < 70; j++){
+			if ((i==6 && j==34)||(i==7 && j==60)||(i==9 && j==24)||(i==9 && j==35)) {
+				continue;
+			}
+			ROOT::RDataFrame df("CICADAv2p1p2Ntuplizer/L1TCaloSummaryOutput", 
+				"/hdfs/store/user/aloelige/ZeroBias/Paper_Ntuples_27Mar2024/240327_152836/0000/output_" + std::to_string(i*69+j) + ".root");
+			df.Foreach(unpack, {"modelInput"});
+		}
 		f.Close();
 	}
 	return 0;
