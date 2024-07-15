@@ -14,7 +14,7 @@ import yaml
 
 from drawing import Draw
 from generator import RegionETGenerator
-from models import TeacherAutoencoder, CicadaV1, CicadaV2
+from models import TeacherAutoencoder, TeacherScnAutoencoder, CicadaV1, CicadaV2
 from pathlib import Path
 from tensorflow import data
 from tensorflow import keras
@@ -62,9 +62,6 @@ def train_model(
     callbacks=None,
     verbose: bool = False,
 ) -> None:
-    # print(gen_train.element_spec)
-    # print(gen_val.element_spec)
-    # print(model.get_config())
     model.fit(
         gen_train,
         steps_per_epoch=len(gen_train),
@@ -75,80 +72,89 @@ def train_model(
         verbose=verbose,
     )
 
+# for parameter which:
+# 0-->teacher only
+# 1-->teacher+teacher_scn_1
+# 2-->teacher+teacher_scn_1 and 2
+# 3-->teacher+teacher_scn_1 2 and 3
 def run_training(
-    config: dict, eval_only: bool, epochs: int = 100, verbose: bool = False
+     run_title: str, which: int, config: dict, eval_only: bool, epochs: int = 100, data_to_use: float = 0.01, verbose: bool = False
 ) -> None:
     global INPUT_SIZE
 
-    draw = Draw()
-    
+    draw = Draw(output_dir=run_title+"/plots")
+
     datasets = [i["path"] for i in config["background"] if i["use"]]
     datasets = [path for paths in datasets for path in paths]
-    
+
     gen = RegionETGenerator()
     X_train, X_val, X_test = gen.get_data_split(datasets)
     X_scn_train, X_scn_val, X_scn_test = gen.get_sectioned_data_split(datasets)
+    X_spr_train, X_spr_val, X_spr_test = gen.get_super_data_split(datasets)
     #X_signal, _ = gen.get_benchmark(config["signal"], filter_acceptance=False)
+
+    X_train = X_train[:int(data_to_use*X_train.shape[0])]
+    X_val = X_val[:int(data_to_use*X_val.shape[0])]
+    X_test = X_test[:int(data_to_use*X_test.shape[0])]
+    X_scn_train = X_scn_train[:int(data_to_use*X_scn_train.shape[0])]
+    X_scn_val = X_scn_val[:int(data_to_use*X_scn_val.shape[0])]
+    X_scn_test = X_scn_test[:int(data_to_use*X_scn_test.shape[0])]
+    X_spr_train = X_spr_train[:int(data_to_use*X_spr_train.shape[0]/3.0)]
+    X_spr_val = X_spr_val[:int(data_to_use*X_spr_val.shape[0]/3.0)]
+    X_spr_test = X_spr_test[:int(data_to_use*X_spr_test.shape[0]/3.0)]
+
     gen_train = gen.get_generator(X_train, X_train, 512, True)
     gen_val = gen.get_generator(X_val, X_val, 512)
-    gen_scn_train = [gen.get_generator(X_scn_train[i], X_scn_train[i], 512) for i in range(3)]
-    gen_scn_val = [gen.get_generator(X_scn_val[i], X_scn_val[i], 512) for i in range(3)]
+    gen_scn_train = [gen.get_generator(X_scn_train[i], X_scn_train[i], 512) for i in range(which)]
+    gen_scn_val = [gen.get_generator(X_scn_val[i], X_scn_val[i], 512) for i in range(which)]
+    gen_spr_train = gen.get_generator(X_spr_train, X_spr_train, 512, True)
+    gen_spr_val = gen.get_generator(X_spr_val, X_spr_val, 512)
     #outlier_train = gen.get_data(config["exposure"]["training"])
     #outlier_val = gen.get_data(config["exposure"]["validation"])
-
     #X_train_student = np.concatenate([X_train, outlier_train])
     #X_val_student = np.concatenate([X_val, outlier_train])
 
     if not eval_only:
-        teacher = TeacherAutoencoder((6, 14, 1)).get_model()
+        teacher = TeacherAutoencoder((18, 14, 1)).get_model()
         teacher.compile(optimizer=Adam(learning_rate=0.001), loss="mse")
-        t_mc = ModelCheckpoint(f"models/{teacher.name}", save_best_only=True)
-        t_log = CSVLogger(f"models/{teacher.name}/training.log", append=True)
+        t_mc = ModelCheckpoint(f"{run_title}/models/{teacher.name}", save_best_only=True)
+        t_log = CSVLogger(f"{run_title}/models/{teacher.name}/training.log", append=True)
 
-        teachers_scn=[TeacherAutoencoder((6, 14, 1)).get_model(name=f"teacher_scn_{i+1}") for i in range(3)]
+        teachers_scn=[TeacherScnAutoencoder((6, 14, 1)).get_model(name=f"teacher_scn_{i+1}") for i in range(which)]
         for teacher_scn in teachers_scn: teacher_scn.compile(optimizer=Adam(learning_rate=0.001), loss="mse")
-        ts_scn_mc = [ModelCheckpoint(f"models/{teacher_scn.name}", save_best_only=True) for teacher_scn in teachers_scn]
-        ts_scn_log = [CSVLogger(f"models/{teacher_scn.name}/training.log", append=True) for teacher_scn in teachers_scn]
+        ts_scn_mc = [ModelCheckpoint(f"{run_title}/models/{teacher_scn.name}", save_best_only=True) for teacher_scn in teachers_scn]
+        ts_scn_log = [CSVLogger(f"{run_title}/models/{teacher_scn.name}/training.log", append=True) for teacher_scn in teachers_scn]
+
+        teacher_spr = TeacherScnAutoencoder((6, 14, 1)).get_model(name="teacher_spr")
+        teacher_spr.compile(optimizer=Adam(learning_rate=0.001), loss="mse")
+        t_spr_mc = ModelCheckpoint(f"{run_title}/models/{teacher_spr.name}", save_best_only=True)
+        t_spr_log = CSVLogger(f"{run_title}/models/{teacher_spr.name}/training.log", append=True)
 
         '''cicada_v1 = CicadaV1((INPUT_SIZE,)).get_model()
         cicada_v1.compile(optimizer=Adam(learning_rate=0.001), loss="mae")
-        cv1_mc = ModelCheckpoint(f"models/{cicada_v1.name}", save_best_only=True)
-        cv1_log = CSVLogger(f"models/{cicada_v1.name}/training.log", append=True)
+        cv1_mc = ModelCheckpoint(f"{run_title}/models/{cicada_v1.name}", save_best_only=True)
+        cv1_log = CSVLogger(f"{run_title}/models/{cicada_v1.name}/training.log", append=True)
 
         cicada_v2 = CicadaV2((INPUT_SIZE,)).get_model(name="teacher_scn_3")
         cicada_v2.compile(optimizer=Adam(learning_rate=0.001), loss="mae")
-        cv2_mc = ModelCheckpoint(f"models/{cicada_v2.name}", save_best_only=True)
-        cv2_log = CSVLogger(f"models/{cicada_v2.name}/training.log", append=True)'''
-        # print(gen_val.element_spec)
-        
+        cv2_mc = ModelCheckpoint(f"{run_title}/models/{cicada_v2.name}", save_best_only=True)
+        cv2_log = CSVLogger(f"{run_title}/models/{cicada_v2.name}/training.log", append=True)'''
+
         print("Training teachers...")
         for epoch in tqdm(range(epochs)):
-            train_model(
-                teacher,
-                gen_train,
-                gen_val,
-                epoch=epoch,
-                callbacks=[t_mc, t_log],
-                verbose=verbose,
-            )
-
-            tmp_teacher = keras.models.load_model("models/teacher")
+            train_model(teacher, gen_train, gen_val, epoch=epoch, callbacks=[t_mc, t_log], verbose=verbose)
+            tmp_teacher = keras.models.load_model(f"{run_title}/models/teacher")
             # s_gen_train = get_student_targets(tmp_teacher, gen, X_train_student)
             # s_gen_val = get_student_targets(tmp_teacher, gen, X_val_student)
             tmp_teachers_scn = []
-            for i in range(3):
-                train_model(
-                    teachers_scn[i],
-                    gen_scn_train[i],
-                    gen_scn_val[i],
-                    epoch=epoch,
-                    callbacks=[ts_scn_mc[i], ts_scn_log[i]],
-                    verbose=verbose,
-                )
+            for i in range(which):
+                train_model(teachers_scn[i], gen_scn_train[i], gen_scn_val[i], epoch=epoch, callbacks=[ts_scn_mc[i], ts_scn_log[i]], verbose=verbose)
+                tmp_teachers_scn.append(keras.models.load_model(f"{run_title}/models/teacher_scn_{i+1}"))
 
-                tmp_teachers_scn.append(keras.models.load_model(f"models/teacher_scn_{i+1}"))
-            '''
-            train_model(
+            train_model(teacher_spr, gen_spr_train, gen_spr_val, epoch=epoch, callbacks=[t_spr_mc, t_spr_log], verbose=verbose)
+            tmp_teacher_spr = keras.models.load_model(f"{run_title}/models/teacher_spr")
+
+            '''train_model(
                 cicada_v1,
                 s_gen_train,
                 s_gen_val,
@@ -167,43 +173,40 @@ def run_training(
                 verbose=verbose,
             )'''
 
-            '''for model in [teacher, cicada_v1, cicada_v2]:
-                log = pd.read_csv(f"models/{model.name}/training.log")
-                draw.plot_loss_history(
-                    log["loss"], log["val_loss"], f"{model.name}-training-history"
-            )'''
-        for model in [teacher, teachers_scn[0], teachers_scn[1], teachers_scn[2]]:
-            log = pd.read_csv(f"models/{model.name}/training.log")
+        '''for model in [teacher, cicada_v1, cicada_v2]:
+            log = pd.read_csv(f"{run_title}/models/{model.name}/training.log")
             draw.plot_loss_history(
-                log["loss"], log["val_loss"], f"{model.name}-training-history")
-        #log = pd.read_csv(f"models/teacher/training.log")
-        #draw.plot_loss_history(
-        #    log["loss"], log["val_loss"], f"teacher-training-history")
+                log["loss"], log["val_loss"], f"{run_title}/plots/{model.name}-training-history"
+        )'''
+    # Training results
+    log = pd.read_csv(f"{run_title}/models/teacher/training.log")
+    draw.plot_loss_history(log["loss"], log["val_loss"], "teacher-training-history")
+    for i in range(which):
+        log = pd.read_csv(f"{run_title}/models/teacher_scn_{i+1}/training.log")
+        draw.plot_loss_history(log["loss"], log["val_loss"], f"teacher_scn_{i+1}-training-history")
+    log = pd.read_csv(f"{run_title}/models/teacher_spr/training.log")
+    draw.plot_loss_history(log["loss"], log["val_loss"], "teacher_spr-training-history")
 
-    teacher = keras.models.load_model("models/teacher")
-    teachers_scn = [keras.models.load_model(f"models/teacher_scn_{i+1}") for i in range(3)]
+    teacher = keras.models.load_model(f"{run_title}/models/teacher")
+    teachers_scn = [keras.models.load_model(f"{run_title}/models/teacher_scn_{i+1}") for i in range(which)]
+    teacher_spr = keras.models.load_model(f"{run_title}/models/teacher_spr")
     #cicada_v1 = keras.models.load_model("models/cicada-v1")
     #cicada_v2 = keras.models.load_model("models/cicada-v2")
 
-    # Comparison between original and reconstructed inputs
+    # Reconstruction results
     X_example = X_test[:1]
     y_example = teacher.predict(X_example, verbose=verbose)
-    draw.plot_reconstruction_results(
-        X_example,
-        y_example,
-        loss=loss(X_example, y_example)[0],
-        name="comparison-background",
-    )
+    draw.plot_reconstruction_results(X_example, y_example, loss=loss(X_example, y_example)[0], name="comparison-background")
 
     X_examples = X_scn_test[:1]
-    y_examples = [teachers_scn[i].predict(np.expand_dims(X_examples[0][i],0), verbose=verbose) for i in range(3)]
-    for i in range(3):
-        draw.plot_reconstruction_results(
-            np.expand_dims(X_examples[0][i],0),
-            y_examples[i],
-            loss=loss(np.expand_dims(X_examples[0][i],0), y_examples[i])[0],
-            name=f"comparison-background-scn-{i+1}",
-        )
+    y_examples = [teachers_scn[i].predict(np.expand_dims(X_examples[0][i],0), verbose=verbose) for i in range(which)]
+    for i in range(which):
+        draw.plot_reconstruction_results(np.expand_dims(X_examples[0][i],0), y_examples[i], loss=loss(np.expand_dims(X_examples[0][i],0), y_examples[i])[0], name=f"comparison-background-scn-{i+1}")
+
+    X_example = X_spr_test[:1]
+    y_example = teacher_spr.predict(X_example, verbose=verbose)
+    draw.plot_reconstruction_results(X_example, y_example, loss=loss(X_example, y_example)[0], name="comparison-background-spr")
+
 
     '''X_example = X_signal["SUSYGGBBH"][:1]
     y_example = teacher.predict(X_example, verbose=verbose)
@@ -214,12 +217,13 @@ def run_training(
         name="comparison-signal",
     )'''
 
-    # Evaluation
+    # Anomaly score distribution
     y_pred_background_teacher = teacher.predict(X_test, batch_size=512, verbose=verbose)
     y_loss_background_teacher = loss(X_test, y_pred_background_teacher)
-    y_pred_background_teachers = [teachers_scn[i].predict(X_scn_test[i], batch_size=512, verbose=verbose) for i in range(3)]
-    y_loss_background_teachers = [loss(X_scn_test[i], y_pred_background_teachers[i]) for i in range(3)]
-
+    y_pred_background_teachers = [teachers_scn[i].predict(X_scn_test[i], batch_size=512, verbose=verbose) for i in range(which)]
+    y_loss_background_teachers = [loss(X_scn_test[i], y_pred_background_teachers[i]) for i in range(which)]
+    y_pred_background_teacher_spr = teacher_spr.predict(X_spr_test, batch_size=512, verbose=verbose)
+    y_loss_background_teacher_spr = loss(X_spr_test, y_pred_background_teacher_spr)
 
     '''y_loss_background_cicada_v1 = cicada_v1.predict(
         X_test.reshape(-1, INPUT_SIZE, 1), batch_size=512, verbose=verbose
@@ -228,18 +232,19 @@ def run_training(
         X_test.reshape(-1, INPUT_SIZE, 1), batch_size=512, verbose=verbose
     )'''
 
-    results_teacher, results_teachers_scn_1, results_teachers_scn_2, results_teachers_scn_3 = dict(), dict(), dict(), dict()
-    results_teacher["2023 Zero Bias (Test)"] = y_loss_background_teacher
-    results_teachers_scn_1["Zero Bias (Test)"] = y_loss_background_teachers[0]
-    results_teachers_scn_2["Zero Bias (Test)"] = y_loss_background_teachers[1]
-    results_teachers_scn_3["Zero Bias (Test)"] = y_loss_background_teachers[2]
+    results_teacher, results_teachers_scn, temp_dict, results_teacher_spr = dict(), [], dict(), dict()
+    results_teacher["Zero Bias"] = y_loss_background_teacher
+    for i in range(which):
+        temp_dict["Zero Bias"] = y_loss_background_teachers[i]
+        results_teachers_scn.append(temp_dict.copy())
+    results_teacher_spr["Zero Bias"] = y_loss_background_teacher_spr
     #results_cicada_v1, results_cicada_v2 = dict(), dict()
     # results_cicada_v1["2023 Zero Bias (Test)"] = y_loss_background_cicada_v1
     # results_cicada_v2["2023 Zero Bias (Test)"] = y_loss_background_cicada_v2
 
     #y_true, y_pred_teacher = [], []
     #y_pred_cicada_v1, y_pred_cicada_v2 = [], []
-    inputs = []
+    #inputs = []
     '''for name, data in X_signal.items():
         inputs.append(np.concatenate((data, X_test)))
 
@@ -269,26 +274,10 @@ def run_training(
             np.concatenate((y_loss_cicada_v2, y_loss_background_cicada_v2))
         )
     '''
-    draw.plot_anomaly_score_distribution(
-        list(results_teacher.values()),
-        [*results_teacher],
-        "anomaly-score-teacher",
-    )
-    draw.plot_anomaly_score_distribution(
-        list(results_teachers_scn_1.values()),
-        [*results_teachers_scn_1],
-        "anomaly-score-teachers-scn-1",
-    )
-    draw.plot_anomaly_score_distribution(
-        list(results_teachers_scn_2.values()),
-        [*results_teachers_scn_2],
-        "anomaly-score-teachers-scn-2",
-    )
-    draw.plot_anomaly_score_distribution(
-        list(results_teachers_scn_3.values()),
-        [*results_teachers_scn_3],
-        "anomaly-score-teachers-scn-3",
-    )
+    draw.plot_anomaly_score_distribution(list(results_teacher.values()), [*results_teacher], "anomaly-score-teacher")
+    for i in range(which):
+        draw.plot_anomaly_score_distribution(list(results_teachers_scn[i].values()), [*results_teachers_scn[i]], f"anomaly-score-teachers-scn-{i+1}")
+    draw.plot_anomaly_score_distribution(list(results_teacher_spr.values()), [*results_teacher_spr], "anomaly-score-teacher-spr")
     '''draw.plot_anomaly_score_distribution(
         list(results_cicada_v1.values()),
         [*results_cicada_v1],
@@ -307,30 +296,47 @@ def run_training(
 
 
 def parse_arguments():
-    parser = argparse.ArgumentParser(description="""CICADA training scripts""")
+    parser = argparse.ArgumentParser(description="""CICADA sectioned training scripts""")
     parser.add_argument(
-        "--config",
-        "-c",
+        "run_title",
+        type=str,
+        help="Title of run",
+    )
+    parser.add_argument(
+        "which",
+        type=int,
+        help="Which models to train/evaluate",
+    )
+    parser.add_argument(
+        "-config",
+        "-config",
         action=IsValidFile,
         type=Path,
         default="misc/config.yml",
         help="Path to config file",
     )
     parser.add_argument(
-        "--evaluate-only",
+        "-evaluate-only",
         action="store_true",
         help="Skip training",
         default=False,
     )
     parser.add_argument(
-        "-e",
-        "--epochs",
+        "-epochs",
+        "-epochs",
         type=int,
         help="Number of training epochs",
         default=100,
     )
     parser.add_argument(
-        "-v",
+        "-data_to_use",
+        "-data_to_use",
+        type=float,
+        help="Fraction of data to include",
+        default=0.01,
+    )
+    parser.add_argument(
+        "-verbose",
         "--verbose",
         action="store_true",
         help="Output verbosity",
@@ -343,7 +349,7 @@ def parse_arguments():
 
 def main(args_in=None) -> None:
     args, config = parse_arguments()
-    run_training(config, args.evaluate_only, epochs=args.epochs, verbose=args.verbose)
+    run_training(run_title=args.run_title, which=args.which, config=config, eval_only=args.evaluate_only, epochs=args.epochs, data_to_use=args.data_to_use, verbose=args.verbose)
 
 
 if __name__ == "__main__":

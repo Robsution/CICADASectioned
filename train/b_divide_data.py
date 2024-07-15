@@ -29,5 +29,5 @@ data = np.swapaxes(data, 1, 2)
 fwrite=h5py.File("/afs/hep.wisc.edu/home/andrewji/public/CICADASectionedData/h5/B_phi_sliced.h5", "a")
 for n in range(3):
 	if f"CaloRegions{n+1}" in str(fwrite.keys()): del fwrite[f"CaloRegions{n+1}"]
-	dstemp=fwrite.create_dataset(f"CaloRegions{n+1}", data=data[:,i*6:i*6+6,:], maxshape=(data.shape[0],6,14), chunks=True)
+	dstemp=fwrite.create_dataset(f"CaloRegions{n+1}", data=data[:,n*6:n*6+6,:], maxshape=(data.shape[0],6,14), chunks=True)
 fwrite.close()
