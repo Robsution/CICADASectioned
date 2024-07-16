@@ -29,7 +29,16 @@ background:
  - path:
    - '/afs/hep.wisc.edu/home/andrewji/public/CICADASectionedData/h5/B_phi_sliced.h5'
    name: 'Training Set'
+   use: False
+ - path:
+   - '/eos/user/a/aji/CICADASectionedData/test/phi_sliced.h5'
+   name: 'Test Training Set'
+   use: False
+ - path:
+   - '/eos/user/a/aji/CICADASectionedData/h5/B_phi_sliced.h5'
+   name: 'Training Set'
    use: True
+
 signal:
  - path:
    - '/eos/project/c/cicada-project/data/2023/Signal/SUEP.h5'

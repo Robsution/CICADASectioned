@@ -17,7 +17,12 @@ class Draw:
     def __init__(self, output_dir: Path = Path("plots")):
         self.output_dir = output_dir
         self.cmap = ["green", "red", "blue", "orange", "purple", "brown"]
+        self.models = ["Zero Bias (teacher)", "Zero Bias (teacher_scn)", "Zero Bias (teacher_spr)"]
+        self.models_cmap = {}
+        for key, value in zip(self.models, self.cmap):
+            self.models_cmap[key] = value
         hep.style.use("CMS")
+
 
     def _parse_name(self, name: str) -> str:
         return name.replace(" ", "-").lower()
@@ -55,7 +60,7 @@ class Draw:
         plt.ylabel(r"i$\phi$")
         plt.title(rf"Mean E$_T$ {mean: .2f} ({name})")
         plt.savefig(
-            f"{self.output_dir}/profiling-mean-deposits-{self._parse_name(name)}.png",
+            f"{self.output_dir}/profiling_mean_deposits_{self._parse_name(name)}.png",
             bbox_inches="tight",
         )
         plt.close()
@@ -89,7 +94,7 @@ class Draw:
         ax2.set_xlabel(r"i$\phi$")
         plt.legend(loc="best")
         plt.savefig(
-            f"{self.output_dir}/profiling-spacial-{self._parse_name(name)}.png",
+            f"{self.output_dir}/profiling_spacial_{self._parse_name(name)}.png",
             bbox_inches="tight",
         )
         plt.close()
@@ -110,12 +115,63 @@ class Draw:
         plt.xlabel(r"E$_T$")
         plt.legend(loc="best")
         plt.savefig(
-            f"{self.output_dir}/profiling-deposits-{self._parse_name(name)}.png",
+            f"{self.output_dir}/profiling_deposits_{self._parse_name(name)}.png",
             bbox_inches="tight",
         )
         plt.close()
 
     def plot_reconstruction_results(
+        self,
+        deposits_in: npt.NDArray,
+        deposits_out: npt.NDArray,
+        loss: float,
+        name: str,
+    ):
+        fig, (ax1, ax2, ax3, cax) = plt.subplots(
+            ncols=4, figsize=(15, 10), gridspec_kw={"width_ratios": [1, 1, 1, 0.05]}
+        )
+        max_deposit = max(deposits_in.max(), deposits_out.max())
+
+        ax1 = plt.subplot(1, 4, 1)
+        ax1.get_xaxis().set_visible(False)
+        ax1.get_yaxis().set_visible(False)
+        ax1.set_title("Original", fontsize=18)
+        ax1.imshow(
+            deposits_in.reshape(18, 14), vmin=0, vmax=max_deposit, cmap="Purples"
+        )
+
+        ax2 = plt.subplot(1, 4, 2)
+        ax2.get_xaxis().set_visible(False)
+        ax2.get_yaxis().set_visible(False)
+        ax2.set_title("Reconstructed", fontsize=18)
+        ax2.imshow(
+            deposits_out.reshape(18, 14), vmin=0, vmax=max_deposit, cmap="Purples"
+        )
+
+        ax3 = plt.subplot(1, 4, 3)
+        ax3.get_xaxis().set_visible(False)
+        ax3.get_yaxis().set_visible(False)
+        ax3.set_title(rf"|$\Delta$|, MSE: {loss: .2f}", fontsize=18)
+
+        im = ax3.imshow(
+            np.abs(deposits_in - deposits_out).reshape(18, 14),
+            vmin=0,
+            vmax=max_deposit,
+            cmap="Purples",
+        )
+
+        ip = InsetPosition(ax3, [1.05, 0, 0.05, 1])
+        cax.set_axes_locator(ip)
+        fig.colorbar(im, cax=cax, ax=[ax1, ax2, ax3]).set_label(
+            label=r"Calorimeter E$_T$ deposit (GeV)", fontsize=18
+        )
+
+        plt.savefig(
+            f"{self.output_dir}/reconstruction_results_{self._parse_name(name)}.png", bbox_inches="tight"
+        )
+        plt.close()
+
+    def plot_reconstruction_results_scn(
         self,
         deposits_in: npt.NDArray,
         deposits_out: npt.NDArray,
@@ -162,7 +218,7 @@ class Draw:
         )
 
         plt.savefig(
-            f"{self.output_dir}/reconstruction-results-{self._parse_name(name)}.png", bbox_inches="tight"
+            f"{self.output_dir}/reconstruction_results_{self._parse_name(name)}.png", bbox_inches="tight"
         )
         plt.close()
 
@@ -182,7 +238,7 @@ class Draw:
         plt.xlabel(r"Anomaly Score")
         plt.legend(loc="center left", bbox_to_anchor=(1, 0.5))
         plt.savefig(
-            f"{self.output_dir}/score-dist-{self._parse_name(name)}.png", bbox_inches="tight"
+            f"{self.output_dir}/score_dist_{self._parse_name(name)}.png", bbox_inches="tight"
         )
         plt.close()
 
@@ -245,7 +301,7 @@ class Draw:
         plt.ylabel("Signal Efficiency")
         plt.legend(loc="center left", bbox_to_anchor=(1, 0.5))
         plt.savefig(
-            f"{self.output_dir}/roc-{self._parse_name(name)}.png", bbox_inches="tight"
+            f"{self.output_dir}/roc_{self._parse_name(name)}.png", bbox_inches="tight"
         )
         plt.close()
 
@@ -256,7 +312,7 @@ class Draw:
         plt.xlabel("Anomaly Score, $S$")
         plt.ylabel("Error, $|S_{Keras} - S_{hls4ml}|$")
         plt.savefig(
-            f"{self.output_dir}/compilation-error-{self._parse_name(name)}.png",
+            f"{self.output_dir}/compilation_error_{self._parse_name(name)}.png",
             bbox_inches="tight",
         )
         plt.close()
@@ -269,7 +325,7 @@ class Draw:
         plt.ylabel("Number of samples")
         plt.yscale("log")
         plt.savefig(
-            f"{self.output_dir}/compilation-error-dist-{self._parse_name(name)}.png",
+            f"{self.output_dir}/compilation_error_dist_{self._parse_name(name)}.png",
             bbox_inches="tight",
         )
 
@@ -278,7 +334,7 @@ class Draw:
             hls_model,
             show_shapes=True,
             show_precision=True,
-            to_file=f"{self.output_dir}/cpp-model-{self._parse_name(name)}.png",
+            to_file=f"{self.output_dir}/cpp_model_{self._parse_name(name)}.png",
         )
 
     def plot_roc_curve_comparison(
@@ -329,7 +385,7 @@ class Draw:
         plt.ylabel("Signal Efficiency")
         plt.legend(loc="center left", bbox_to_anchor=(1, 0.5))
         plt.savefig(
-            f"{self.output_dir}/compilation-roc-{self._parse_name(name)}.png",
+            f"{self.output_dir}/compilation_roc_{self._parse_name(name)}.png",
             bbox_inches="tight",
         )
         plt.close()
@@ -382,7 +438,7 @@ class Draw:
             borderaxespad=0,
         )
         plt.savefig(
-            f"{self.output_dir}/ugt-link-reference.png",
+            f"{self.output_dir}/ugt_link_reference.png",
             bbox_inches="tight",
         )
         plt.close()
@@ -411,7 +467,43 @@ class Draw:
                     size=16,
                 )
         plt.savefig(
-            f"{self.output_dir}/supervised-{self._parse_name(name)}.png",
+            f"{self.output_dir}/supervised_{self._parse_name(name)}.png",
             bbox_inches="tight",
         )
         plt.close()
+
+    def plot_scatter_score_comparison(
+        self, x: npt.NDArray, y: npt.NDArray, x_title: str, y_title: str, name: str
+    ):
+        plt.scatter(x, y, s=1)
+        plt.xlabel(x_title)
+        plt.ylabel(y_title)
+        plt.savefig(
+            f"{self.output_dir}/scatter_score_{self._parse_name(name)}.png",
+            bbox_inches="tight",
+        )
+        plt.close()
+
+    def plot_anomaly_scores_distribution(
+        self, score_list: List[List[npt.NDArray]], label_list: List[str], name: str
+    ):
+        for scores, label in zip(score_list, label_list):
+            for score in scores:
+                plt.hist(
+                    score.reshape((-1)),
+                    alpha=0.5,
+                    bins=100,
+                    range=(0, 256),
+                    density=1,
+                    label=label,
+                    log=True,
+                    histtype="step",
+                    color=self.models_cmap[label]
+                )
+        plt.xlabel(r"Anomaly Score")
+        plt.legend(loc="center left", bbox_to_anchor=(1, 0.5))
+        plt.savefig(
+            f"{self.output_dir}/scores_dist_{self._parse_name(name)}.png", bbox_inches="tight"
+        )
+        plt.close()
+
