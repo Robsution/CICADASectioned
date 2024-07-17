@@ -1,0 +1,11 @@
+executable              = cicada-training.sh
+arguments               = "run_train_epochs_100_data_0.1_lambda_1e-5_0 -data_to_use 0.1 -Lambda 1e-5 0"
+output                  = cicada-training.$(ClusterId).$(ProcId).out
+error                   = cicada-training.$(ClusterId).$(ProcId).err
+log                     = cicada-training.$(ClusterId).log
+should_transfer_files   = YES
+transfer_input_files    = cicada-training.py 
+when_to_transfer_output = ON_EXIT
+request_GPUs = 1
+request_CPUs = 1
+queue
