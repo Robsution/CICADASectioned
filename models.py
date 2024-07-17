@@ -59,20 +59,20 @@ class TeacherScnAutoencoder:
     def get_model(self, name="teacher_scn"):
         inputs = Input(shape=self.input_shape, name="teacher_inputs_")
         x = Reshape((6, 14, 1), name="teacher_reshape")(inputs)
-        x = Conv2D(20, (3, 3), strides=1, padding="same", kernel_regularizer=self.l2_reg_kernel, name="teacher_conv2d_1")(x)
+        x = Conv2D(8, (3, 3), strides=1, padding="same", kernel_regularizer=self.l2_reg_kernel, name="teacher_conv2d_1")(x) # was filters=20
         x = Activation("relu", name="teacher_relu_1")(x)
         x = AveragePooling2D((2, 2), name="teacher_pool_1")(x)
-        x = Conv2D(30, (3, 3), strides=1, padding="same", kernel_regularizer=self.l2_reg_kernel, name="teacher_conv2d_2")(x)
+        x = Conv2D(10, (3, 3), strides=1, padding="same", kernel_regularizer=self.l2_reg_kernel, name="teacher_conv2d_2")(x) # was filters=30
         x = Activation("relu", name="teacher_relu_2")(x)
         x = Flatten(name="teacher_flatten")(x)
-        x = Dense(80, activation="relu", kernel_regularizer=self.l2_reg_kernel, activity_regularizer=self.l2_reg_activity, name="teacher_latent")(x)
+        x = Dense(30, activation="relu", kernel_regularizer=self.l2_reg_kernel, activity_regularizer=self.l2_reg_activity, name="teacher_latent")(x) # was 80
         x = Dense(3 * 7 * 30, kernel_regularizer=self.l2_reg_kernel, name="teacher_dense")(x)
         x = Reshape((3, 7, 30), name="teacher_reshape2")(x)
         x = Activation("relu", name="teacher_relu_3")(x)
-        x = Conv2D(30, (3, 3), strides=1, padding="same", kernel_regularizer=self.l2_reg_kernel, name="teacher_conv2d_3")(x)
+        x = Conv2D(10, (3, 3), strides=1, padding="same", kernel_regularizer=self.l2_reg_kernel, name="teacher_conv2d_3")(x) # was filters=30
         x = Activation("relu", name="teacher_relu_4")(x)
         x = UpSampling2D((2, 2), name="teacher_upsampling")(x)
-        x = Conv2D(20, (3, 3), strides=1, padding="same", kernel_regularizer=self.l2_reg_kernel, name="teacher_conv2d_4")(x)
+        x = Conv2D(8, (3, 3), strides=1, padding="same", kernel_regularizer=self.l2_reg_kernel, name="teacher_conv2d_4")(x) # was filters=20
         x = Activation("relu", name="teacher_relu_5")(x)
         outputs = Conv2D(
             1,
