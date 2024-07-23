@@ -4,7 +4,7 @@ background:
    - '/eos/project/c/cicada-project/data/2023/Background/ZB_RunA_0.h5'
    name: '2023 ZB Run A'
    use: False
- - path: 
+ - path:
    - '/eos/project/c/cicada-project/data/2023/Background/ZB_RunB_0.h5'
    name: '2023 ZB Run B'
    use: False
@@ -37,6 +37,28 @@ background:
  - path:
    - '/eos/user/a/aji/CICADASectionedData/h5/B_phi_sliced.h5'
    name: 'Training Set'
+   use: False
+ - path:
+   - '/afs/hep.wisc.edu/home/andrewji/public/CICADASectionedData/h5/Background/ZB_RunA_0.h5'
+   name: '2023 ZB Run A (scp)'
+   use: True
+ - path:
+   - '/afs/hep.wisc.edu/home/andrewji/public/CICADASectionedData/h5/Background/ZB_RunB_0.h5'
+   name: '2023 ZB Run B (scp)'
+   use: True
+ - path:
+   - '/afs/hep.wisc.edu/home/andrewji/public/CICADASectionedData/h5/Background/ZB_RunC_0.h5'
+   name: '2023 ZB Run C (scp)'
+   use: True
+ - path:
+   - '/afs/hep.wisc.edu/home/andrewji/public/CICADASectionedData/h5/Background/ZB_RunD_0.h5'
+   name: '2023 ZB Run D (scp)'
+   use: True
+ - path:
+   - '/afs/hep.wisc.edu/home/andrewji/public/CICADASectionedData/h5/Background/EZB0_RunC_0.h5'
+   - '/afs/hep.wisc.edu/home/andrewji/public/CICADASectionedData/h5/Background/EZB0_RunC_1.h5'
+   - '/afs/hep.wisc.edu/home/andrewji/public/CICADASectionedData/h5/Background/EZB0_RunC_2.h5'
+   name: '2023 EZB Run C (scp)'
    use: True
 
 signal:
@@ -58,6 +80,26 @@ signal:
    use: False
  - path:
    - '/eos/project/c/cicada-project/data/2023/Signal/SUSYGGBBH.h5'
+   name: 'SUSYGGBBH'
+   use: False
+ - path:
+   - '/afs/hep.wisc.edu/home/andrewji/public/CICADASectionedData/h5/Signal/SUEP.h5'
+   name: 'SUEP'
+   use: False
+ - path:
+   - '/afs/hep.wisc.edu/home/andrewji/public/CICADASectionedData/h5/Signal/H_ToLongLived.h5'
+   name: 'HtoLongLived'
+   use: False
+ - path:
+   - '/afs/hep.wisc.edu/home/andrewji/public/CICADASectionedData/h5/Signal/VBFHto2C.h5'
+   name: 'VBHFto2C'
+   use: False
+ - path:
+   - '/afs/hep.wisc.edu/home/andrewji/public/CICADASectionedData/h5/Signal/TT.h5'
+   name: 'TT' 
+   use: False
+ - path:
+   - '/afs/hep.wisc.edu/home/andrewji/public/CICADASectionedData/h5/Signal/SUSYGGBBH.h5'
    name: 'SUSYGGBBH'
    use: False
 

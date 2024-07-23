@@ -17,7 +17,7 @@ class Draw:
     def __init__(self, output_dir: Path = Path("plots")):
         self.output_dir = output_dir
         self.cmap = ["green", "red", "blue", "orange", "purple", "brown"]
-        self.models = ["Zero Bias (teacher)", "Zero Bias (teacher_scn)", "Zero Bias (teacher_spr)"]
+        self.models = ["Zero Bias (cicada_v2)", "Zero Bias (teacher)", "Zero Bias (teacher_scn)", "Zero Bias (teacher_spr)"]
         self.models_cmap = {}
         for key, value in zip(self.models, self.cmap):
             self.models_cmap[key] = value
@@ -31,9 +31,22 @@ class Draw:
         self, training_loss: npt.NDArray, validation_loss: npt.NDArray, name: str
     ):
         plt.plot(np.arange(1, len(training_loss) + 1), training_loss, label="Training")
-        plt.plot(
-            np.arange(1, len(validation_loss) + 1), validation_loss, label="Validation"
+        plt.plot(np.arange(1, len(validation_loss) + 1), validation_loss, label="Validation")
+        plt.legend(loc="upper right")
+        plt.xlabel("Epoch")
+        plt.ylabel("Loss")
+        plt.savefig(
+            f"{self.output_dir}/{self._parse_name(name)}.png", bbox_inches="tight"
         )
+        plt.close()
+
+    def plot_multiple_loss_history(
+        self, losses, name: str
+    ):
+        nLosses = len(losses)
+        for i in range(nLosses):
+            plt.plot(np.arange(1, len(losses[i][0]) + 1), losses[i][0], label=f"Training, {losses[i][2]}", color=self.cmap[i])
+            plt.plot(np.arange(1, len(losses[i][1]) + 1), losses[i][1], label=f"Validation, {losses[i][2]}", color=self.cmap[i], linestyle="dotted")
         plt.legend(loc="upper right")
         plt.xlabel("Epoch")
         plt.ylabel("Loss")
@@ -476,6 +489,9 @@ class Draw:
         self, x: npt.NDArray, y: npt.NDArray, x_title: str, y_title: str, name: str
     ):
         plt.scatter(x, y, s=1)
+        max_val = np.max([x, y])
+        plt.xlim(0, max_val)
+        plt.ylim(0, max_val)
         plt.xlabel(x_title)
         plt.ylabel(y_title)
         plt.savefig(

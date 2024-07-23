@@ -1,0 +1,7 @@
+teacher_teachers_corr:
+[[1.         0.43730868]
+ [0.43730868 1.        ]]
+teacher_teacher_spr_corr:
+[[1.         0.58677317]
+ [0.58677317 1.        ]]
+Trained on 122711 events
