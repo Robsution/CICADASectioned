@@ -167,15 +167,15 @@ def run_training(
             teachers_scn = [TeacherScnAutoencoder((6, 14, 1), Lambda=Lambda, filters=filters, pooling = pooling, search=False, compile=False, name=f"teacher_scn_{i+1}").get_model(hp=None) for i in range(3)]
             teacher_spr = TeacherScnAutoencoder((6, 14, 1), Lambda=Lambda, filters=filters, pooling = pooling, search=False, compile=False, name=f"teacher_spr").get_model(hp=None)
 
-        teacher.compile(optimizer=Adam(learning_rate=0.001), loss="mse")
+        teacher.compile(optimizer=Adam(learning_rate=0.01), loss="mse") 
         t_mc = ModelCheckpoint(f"runs/{run_title}/models/{teacher.name}", save_best_only=True)
         t_log = CSVLogger(f"runs/{run_title}/models/{teacher.name}/training.log", append=True)
 
-        for i in range(3): teachers_scn[i].compile(optimizer=Adam(learning_rate=0.001), loss="mse")
+        for i in range(3): teachers_scn[i].compile(optimizer=Adam(learning_rate=0.01), loss="mse")
         ts_scn_mc = [ModelCheckpoint(f"runs/{run_title}/models/teacher_scn_{i+1}", save_best_only=True) for i in range(3)]
         ts_scn_log = [CSVLogger(f"runs/{run_title}/models/teacher_scn_{i+1}/training.log", append=True) for i in range(3)]
 
-        teacher_spr.compile(optimizer=Adam(learning_rate=0.001), loss="mse")
+        teacher_spr.compile(optimizer=Adam(learning_rate=0.01), loss="mse")
         t_spr_mc = ModelCheckpoint(f"runs/{run_title}/models/{teacher_spr.name}", save_best_only=True)
         t_spr_log = CSVLogger(f"runs/{run_title}/models/{teacher_spr.name}/training.log", append=True)
 
