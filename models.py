@@ -90,9 +90,9 @@ class TeacherScnAutoencoder:
         else:
             l2_reg_en = regularizers.l2(hp.Float("l2_reg_en", min_value=1e-5, max_value=1., step=10, sampling="log"))
             l2_reg_de = regularizers.l2(hp.Float("l2_reg_de", min_value=1e-5, max_value=1., step=10, sampling="log"))
-            filters = [hp.Int("filter_1", min_value=4, max_value=10, step=2),
-                       hp.Int("filter_2", min_value=6, max_value=16, step=2),
-                       hp.Int("filter_3", min_value=16, max_value=40, step=4)]
+            filters = [hp.Int("filter_1", min_value=4, max_value=10, step=1),
+                       hp.Int("filter_2", min_value=6, max_value=14, step=1),
+                       hp.Int("filter_3", min_value=16, max_value=32, step=2)]
             pooling = (hp.Choice("pool_1", [1,2,3]), hp.Choice("pool_2", [1,2,3]))
 
         inputs = Input(shape=self.input_shape, name=f"{self.name}_inputs_")

@@ -189,14 +189,14 @@ class RegionETGenerator:
 #        )
 
 
-        X_train = np.swapaxes(X_train, 0, 1)
+        '''X_train = np.swapaxes(X_train, 0, 1)
         X_train = np.reshape(X, (-1, 3, 6, 14, 1))
         X_val = np.swapaxes(X_val, 0, 1)
         X_val = np.reshape(X, (-1, 3, 6, 14, 1))
         X_test = np.swapaxes(X_test, 0, 1)
         X_test = np.reshape(X, (-1, 3, 6, 14, 1))
 
-        return (X_train, X_val, X_test)
+        return (X_train, X_val, X_test)'''
 
     def get_benchmark(
         self, datasets: dict, filter_acceptance=True

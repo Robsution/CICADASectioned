@@ -516,10 +516,26 @@ class Draw:
                     histtype="step",
                     color=self.models_cmap[label]
                 )
-        plt.xlabel(r"Anomaly Score")
+        plt.xlabel("Anomaly Score")
         plt.legend(loc="center left", bbox_to_anchor=(1, 0.5))
         plt.savefig(
             f"{self.output_dir}/scores_dist_{self._parse_name(name)}.png", bbox_inches="tight"
         )
         plt.close()
 
+    def plot_mean_sectioned_deposits(
+        self, deposits: npt.NDArray, name: str
+    ):
+        # Assumes deposits.shape is (-1, 3, 6, 14, 1)
+        deposits = np.mean(deposits, axis=0)
+        deposits = np.reshape(deposits, (18, 14))
+        plt.imshow(
+            deposits, vmin=0, vmax=np.max(deposits), cmap="Purples"
+        )
+        plt.title("Mean ET")
+        plt.xlabel("Eta")
+        plt.ylabel("Phi")
+        plt.savefig(
+            f"{self.output_dir}/mean_deposits_scn_{self._parse_name(name)}.png", bbox_inches="tight"
+        )
+        plt.close()

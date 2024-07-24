@@ -95,12 +95,17 @@ def run_training(
     X_spr_train, X_spr_val, X_spr_test = gen.get_super_data_split(datasets, data_to_use)
     #X_signal, _ = gen.get_benchmark(config["signal"], filter_acceptance=False)
 
+    print(X_train.shape)
+    print(X_scn_train.shape)
+    print(np.reshape(X_scn_train[:,0], (-1, 6, 14, 1)).shape)
+    print(X_spr_train.shape)
+
     gen_train = gen.get_generator(X_train, X_train, 512, True)
     gen_val = gen.get_generator(X_val, X_val, 512)
     gen_test = gen.get_generator(X_test, X_test, 512)
-    gen_scn_train = [gen.get_generator(X_scn_train[i], X_scn_train[i], 512) for i in range(3)]
-    gen_scn_val = [gen.get_generator(X_scn_val[i], X_scn_val[i], 512) for i in range(3)]
-    gen_scn_test = [gen.get_generator(X_scn_test[i], X_scn_test[i], 512) for i in range(3)]
+    gen_scn_train = [gen.get_generator(np.reshape(X_scn_train[:,i], (-1,6,14,1)), np.reshape(X_scn_train[:,i], (-1,6,14,1)), 512) for i in range(3)]
+    gen_scn_val = [gen.get_generator(np.reshape(X_scn_val[:,i], (-1,6,14,1)), np.reshape(X_scn_val[:,i], (-1,6,14,1)), 512) for i in range(3)]
+    gen_scn_test = [gen.get_generator(np.reshape(X_scn_test[:,i], (-1,6,14,1)), np.reshape(X_scn_test[:,i], (-1,6,14,1)), 512) for i in range(3)]
     gen_spr_train = gen.get_generator(X_spr_train, X_spr_train, 512, True)
     gen_spr_val = gen.get_generator(X_spr_val, X_spr_val, 512)
     gen_spr_test = gen.get_generator(X_spr_test, X_spr_test, 512)
@@ -160,22 +165,20 @@ def run_training(
             teacher = TeacherAutoencoder((18, 14, 1), search=search, compile=False, name="teacher").get_model(hp=teacher_hp)
             teachers_scn = [TeacherScnAutoencoder((6, 14, 1), search=search, compile=False, name=f"teacher_scn_{i+1}").get_model(hp=teacher_hp_scn[i]) for i in range(3)]
             teacher_spr = TeacherScnAutoencoder((6, 14, 1), search=search, compile=True, name="teacher_spr").get_model(hp=teacher_hp_spr)
-
-            
         else:
             teacher = TeacherAutoencoder((18, 14, 1), Lambda=[0.0, 0.0], filters=[20, 30, 80], pooling = (2, 2), search=False, compile=False, name="teacher").get_model(hp=None)
             teachers_scn = [TeacherScnAutoencoder((6, 14, 1), Lambda=Lambda, filters=filters, pooling = pooling, search=False, compile=False, name=f"teacher_scn_{i+1}").get_model(hp=None) for i in range(3)]
             teacher_spr = TeacherScnAutoencoder((6, 14, 1), Lambda=Lambda, filters=filters, pooling = pooling, search=False, compile=False, name=f"teacher_spr").get_model(hp=None)
 
-        teacher.compile(optimizer=Adam(learning_rate=0.01), loss="mse") 
+        teacher.compile(optimizer=Adam(learning_rate=0.001), loss="mse") 
         t_mc = ModelCheckpoint(f"runs/{run_title}/models/{teacher.name}", save_best_only=True)
         t_log = CSVLogger(f"runs/{run_title}/models/{teacher.name}/training.log", append=True)
 
-        for i in range(3): teachers_scn[i].compile(optimizer=Adam(learning_rate=0.01), loss="mse")
+        for i in range(3): teachers_scn[i].compile(optimizer=Adam(learning_rate=0.001), loss="mse")
         ts_scn_mc = [ModelCheckpoint(f"runs/{run_title}/models/teacher_scn_{i+1}", save_best_only=True) for i in range(3)]
         ts_scn_log = [CSVLogger(f"runs/{run_title}/models/teacher_scn_{i+1}/training.log", append=True) for i in range(3)]
 
-        teacher_spr.compile(optimizer=Adam(learning_rate=0.01), loss="mse")
+        teacher_spr.compile(optimizer=Adam(learning_rate=0.001), loss="mse")
         t_spr_mc = ModelCheckpoint(f"runs/{run_title}/models/{teacher_spr.name}", save_best_only=True)
         t_spr_log = CSVLogger(f"runs/{run_title}/models/{teacher_spr.name}/training.log", append=True)
 
@@ -229,6 +232,7 @@ def run_training(
     teacher_spr = keras.models.load_model(f"runs/{run_title}/models/teacher_spr")
     #cicada_v1 = keras.models.load_model("models/cicada-v1")
     #cicada_v2 = keras.models.load_model("models/cicada-v2")
+    if not os.path.exists(f"runs/{run_title}/plots"): os.makedirs(f"runs/{run_title}/plots")
 
     # Original model
     #cicada_v2 = from_pretrained_keras("cicada-project/cicada-v2.1")
@@ -237,19 +241,21 @@ def run_training(
     # Reconstruction results
     X_example = np.concatenate((X_train[:10], X_val[:10], X_test[:10]))
     X_example = np.reshape(X_example, (30,18,14,1))
-    X_example_t = tf.convert_to_tensor(X_example)
     #y_example_cic = cicada_v2.predict(X_example, verbose=verbose)
     #draw.plot_reconstruction_results(X_example, y_example_cic, loss=loss(X_example, y_example_cic)[0], name="comparison_background_cicada")
-    y_example = teacher.predict(X_example, verbose=verbose)
+    y_example = teacher.predict(tf.convert_to_tensor(X_example), verbose=verbose)
     y_example = np.reshape(y_example, (X_example.shape[0],1,18,14,1))
-    y_example_scn = [teachers_scn[i].predict(np.reshape(X_example[:,i*6:i*6+6],(-1,6,14,1)), verbose=verbose) for i in range(3)]
+    y_example_scn = [teachers_scn[i].predict(tf.convert_to_tensor(np.reshape(X_example[:,i*6:i*6+6],(-1,6,14,1))), verbose=verbose) for i in range(3)]
     y_example_scn = np.reshape(y_example_scn, (X_example.shape[0],1,18,14,1))
-    y_example_spr = [teacher_spr.predict(np.reshape(X_example[:,i*6:i*6+6],(-1,6,14,1)), verbose=verbose) for i in range(3)]
+    y_example_spr = [teacher_spr.predict(tf.convert_to_tensor(np.reshape(X_example[:,i*6:i*6+6],(-1,6,14,1))), verbose=verbose) for i in range(3)]
     y_example_spr = np.reshape(y_example_spr, (X_example.shape[0],1,18,14,1))
     X_example = np.reshape(X_example, (X_example.shape[0],1,18,14,1))
-    for i in range(X_example.shape[0]): draw.plot_reconstruction_results(X_example_t[i], y_example[i], loss=loss(X_example_t[i], y_example[i])[0], name=f"comparison_background_{i}")
-    for i in range(X_example.shape[0]): draw.plot_reconstruction_results(X_example_t[i], y_example_scn[i], loss=loss(X_example_t[i], y_example_scn[i])[0], name=f"comparison_background_scn_{i}")
-    for i in range(X_example.shape[0]): draw.plot_reconstruction_results(X_example_t[i], y_example_spr[i], loss=loss(X_example_t[i], y_example_spr[i])[0], name=f"comparison_background_spr_{i}")
+    for i in range(X_example.shape[0]): draw.plot_reconstruction_results(X_example[i], y_example[i], loss=loss(X_example[i], y_example[i])[0], name=f"comparison_background_{i}")
+    for i in range(X_example.shape[0]): draw.plot_reconstruction_results(X_example[i], y_example_scn[i], loss=loss(X_example[i], y_example_scn[i])[0], name=f"comparison_background_scn_{i}")
+    for i in range(X_example.shape[0]): draw.plot_reconstruction_results(X_example[i], y_example_spr[i], loss=loss(X_example[i], y_example_spr[i])[0], name=f"comparison_background_spr_{i}")
+    draw.plot_mean_sectioned_deposits(X_scn_train, "train_scn")
+    draw.plot_mean_sectioned_deposits(X_scn_val, "val_scn")
+    draw.plot_mean_sectioned_deposits(X_scn_test, "test_scn")
 
     '''X_example = X_signal["SUSYGGBBH"][:1]
     y_example = teacher.predict(X_example, verbose=verbose)
@@ -262,7 +268,6 @@ def run_training(
 
     print("Finished plotting reconstruction examples... plotting loss curves")
     # Training results
-    if not os.path.exists(f"runs/{run_title}/plots"): os.makedirs(f"runs/{run_title}/plots")
     log = pd.read_csv(f"runs/{run_title}/models/teacher/training.log")
     draw.plot_loss_history(log["loss"], log["val_loss"], "teacher_training_history")
     log = []
