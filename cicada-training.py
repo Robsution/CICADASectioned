@@ -5,6 +5,7 @@ os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
 os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
 import argparse
+import time
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
@@ -80,6 +81,8 @@ def run_training(
 ) -> None:
     global INPUT_SIZE
 
+    t0=time.time()
+
     if search:
         run_title = f"{run_title}_epochs_{epochs}_data_{data_to_use}_search"
     else:
@@ -113,6 +116,8 @@ def run_training(
     #outlier_val = gen.get_data(config["exposure"]["validation"])
     #X_train_student = np.concatenate([X_train, outlier_train])
     #X_val_student = np.concatenate([X_val, outlier_train])
+
+    t1=time.time()
 
     if not eval_only:
         if search:
@@ -169,6 +174,8 @@ def run_training(
             teacher = TeacherAutoencoder((18, 14, 1), Lambda=[0.0, 0.0], filters=[20, 30, 80], pooling = (2, 2), search=False, compile=False, name="teacher").get_model(hp=None)
             teachers_scn = [TeacherScnAutoencoder((6, 14, 1), Lambda=Lambda, filters=filters, pooling = pooling, search=False, compile=False, name=f"teacher_scn_{i+1}").get_model(hp=None) for i in range(3)]
             teacher_spr = TeacherScnAutoencoder((6, 14, 1), Lambda=Lambda, filters=filters, pooling = pooling, search=False, compile=False, name=f"teacher_spr").get_model(hp=None)
+
+        t2=time.time()
 
         teacher.compile(optimizer=Adam(learning_rate=0.001), loss="mse") 
         t_mc = ModelCheckpoint(f"runs/{run_title}/models/{teacher.name}", save_best_only=True)
@@ -227,6 +234,8 @@ def run_training(
             log["loss"], log["val_loss"], f"{run_title}/plots/{model.name}-training-history"
     )'''
 
+    t3=time.time()
+
     teacher = keras.models.load_model(f"runs/{run_title}/models/teacher")
     teachers_scn = [keras.models.load_model(f"runs/{run_title}/models/teacher_scn_{i+1}") for i in range(3)]
     teacher_spr = keras.models.load_model(f"runs/{run_title}/models/teacher_spr")
@@ -239,8 +248,8 @@ def run_training(
 
     print("Starting evaluation... plotting reconstruction examples")
     # Reconstruction results
-    X_example = np.concatenate((X_train[:10], X_val[:10], X_test[:10]))
-    X_example = np.reshape(X_example, (30,18,14,1))
+    X_example = np.concatenate((X_train[:5], X_val[:5], X_test[:5]))
+    X_example = np.reshape(X_example, (15,18,14,1))
     #y_example_cic = cicada_v2.predict(X_example, verbose=verbose)
     #draw.plot_reconstruction_results(X_example, y_example_cic, loss=loss(X_example, y_example_cic)[0], name="comparison_background_cicada")
     y_example = teacher.predict(tf.convert_to_tensor(X_example), verbose=verbose)
@@ -368,18 +377,6 @@ def run_training(
     )'''
 
     print("Finished plotting anomaly score distribution... plotting scatter plots and finding score correlations")
-    # Pearson correlation, mse. To be used with CICADA scores.
-    #cicada_v2_teacher_corr = np.corrcoef(y_loss_background_cicada_v2, y_loss_background_teacher)
-    #cicada_v2_teacher_scn_corr = np.corrcoef(y_loss_background_cicada_v2, y_loss_background_teacher_scn)
-    #cicada_v2_teacher_spr_corr = np.corrcoef(y_loss_background_cicada_v2, y_loss_background_teacher_spr)
-    teacher_teacher_scn_corr = np.corrcoef(y_loss_background_teacher, y_loss_background_teacher_scn)
-    teacher_teacher_spr_corr = np.corrcoef(y_loss_background_teacher, y_loss_background_teacher_spr)
-    f = open(f"runs/{run_title}/correlation.txt", "w")
-    f.write(f"Trained on {X_train.shape[0]} events\n")
-    #f.write(f"cicada_v2_teacher_corr:\n{cicada_v2_teacher_corr}\ncicada_v2_teacher_scn_corr:\n{teacher_teacher_scn_corr}\ncicada_v2_teacher_spr_corr:\n{teacher_teacher_spr_corr}\n")
-    f.write(f"teacher_teachers_corr:\n{teacher_teacher_scn_corr}\nteacher_teacher_spr_corr:\n{teacher_teacher_spr_corr}\n")
-    f.close()
-
     # Score distribution (combined)
     #draw.plot_anomaly_scores_distribution(list([list_results_cicada_v2, list_results_teacher, list_results_teacher_scn, list_results_teacher_spr]),
     #    list([*results_cicada_v2, *results_teacher, *results_teacher_scn, *results_teacher_spr]), "anomaly_scores")
@@ -392,6 +389,26 @@ def run_training(
     #draw.plot_scatter_score_comparison(y_loss_background_cicada_v2, y_loss_background_teacher_spr, "cicada_v2", "teacher_spr", "cicada_v2_teacher_spr")
     draw.plot_scatter_score_comparison(y_loss_background_teacher, y_loss_background_teacher_scn, "teacher", "teacher_scn", "teacher_teacher_scn")
     draw.plot_scatter_score_comparison(y_loss_background_teacher, y_loss_background_teacher_spr, "teacher", "teacher_spr", "teacher_teacher_spr")
+
+    # Pearson correlation, mse. To be used with CICADA scores.
+    #cicada_v2_teacher_corr = np.corrcoef(y_loss_background_cicada_v2, y_loss_background_teacher)
+    #cicada_v2_teacher_scn_corr = np.corrcoef(y_loss_background_cicada_v2, y_loss_background_teacher_scn)
+    #cicada_v2_teacher_spr_corr = np.corrcoef(y_loss_background_cicada_v2, y_loss_background_teacher_spr)
+    teacher_teacher_scn_corr = np.corrcoef(y_loss_background_teacher, y_loss_background_teacher_scn)
+    teacher_teacher_spr_corr = np.corrcoef(y_loss_background_teacher, y_loss_background_teacher_spr)
+    f = open(f"runs/{run_title}/correlation.txt", "w")
+    f.write(f"Trained on {X_train.shape[0]} events\n")
+    #f.write(f"cicada_v2_teacher_corr:\n{cicada_v2_teacher_corr}\ncicada_v2_teacher_scn_corr:\n{teacher_teacher_scn_corr}\ncicada_v2_teacher_spr_corr:\n{teacher_teacher_spr_corr}\n")
+    f.write(f"teacher_teachers_corr:\n{teacher_teacher_scn_corr}\nteacher_teacher_spr_corr:\n{teacher_teacher_spr_corr}\n")
+    t4=time.time()
+    f.write(f"Total time: {t4-t0}\n")
+    f.write(f"Data/generator time: {t1-t0}\n")
+    if not eval_only:
+        if search:
+            f.write(f"Search time: {t2-t1}\n")
+        f.write(f"Train time: {t3-t2}\n")
+    f.write(f"Evaluation time: {t4-t3}\n")
+    f.close()
 
     # ROC Curves with Cross-Validation
     # draw.plot_roc_curve(y_true, y_pred_teacher, [*X_signal], inputs, "roc-teacher")
