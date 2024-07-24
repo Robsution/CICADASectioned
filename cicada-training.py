@@ -111,11 +111,10 @@ def run_training(
 
     if not eval_only:
         if search:
-            if not os.path.exists(f"runs/{run_title}/models/search/teacher"): os.makedirs(f"runs/{run_title}/models/search/teacher")
-            if not os.path.exists(f"runs/{run_title}/models/search/teacher_scn_1"): os.makedirs(f"runs/{run_title}/models/search/teacher_scn_1")
-            if not os.path.exists(f"runs/{run_title}/models/search/teacher_scn_2"): os.makedirs(f"runs/{run_title}/models/search/teacher_scn_2")
-            if not os.path.exists(f"runs/{run_title}/models/search/teacher_scn_3"): os.makedirs(f"runs/{run_title}/models/search/teacher_scn_3")
-            if not os.path.exists(f"runs/{run_title}/models/search/teacher_spr"): os.makedirs(f"runs/{run_title}/models/search/teacher_spr")
+            paths = ["teacher", "teacher_scn_1", "teacher_scn_2", "teacher_scn_3", "teacher_spr"]
+            for path in paths:
+                if not os.path.exists(f"runs/{run_title}/models/search/" + path):
+                    os.makedirs(f"runs/{run_title}/models/search/" + path)
 
             teacher_tuner = kt.Hyperband(
                 hypermodel=TeacherAutoencoder((18, 14, 1), search=search, compile=True, name="teacher_tuner").get_model,
@@ -162,6 +161,7 @@ def run_training(
             teachers_scn = [TeacherScnAutoencoder((6, 14, 1), search=search, compile=False, name=f"teacher_scn_{i+1}").get_model(hp=teacher_hp_scn[i]) for i in range(3)]
             teacher_spr = TeacherScnAutoencoder((6, 14, 1), search=search, compile=True, name="teacher_spr").get_model(hp=teacher_hp_spr)
 
+            
         else:
             teacher = TeacherAutoencoder((18, 14, 1), Lambda=[0.0, 0.0], filters=[20, 30, 80], pooling = (2, 2), search=False, compile=False, name="teacher").get_model(hp=None)
             teachers_scn = [TeacherScnAutoencoder((6, 14, 1), Lambda=Lambda, filters=filters, pooling = pooling, search=False, compile=False, name=f"teacher_scn_{i+1}").get_model(hp=None) for i in range(3)]
@@ -182,12 +182,12 @@ def run_training(
         '''cicada_v1 = CicadaV1((INPUT_SIZE,)).get_model()
         cicada_v1.compile(optimizer=Adam(learning_rate=0.001), loss="mae")
         cv1_mc = ModelCheckpoint(f"{run_title}/models/{cicada_v1.name}", save_best_only=True)
-        cv1_log = CSVLogger(f"{run_title}/models/{cicada_v1.name}/training.log", append=True)
+        cv1_log = CSVLogger(f"{run_title}/models/{cicada_v1.name}/training.log", append=True)'''
 
-        cicada_v2 = CicadaV2((INPUT_SIZE,)).get_model(name="teacher_scn_3")
+        cicada_v2 = CicadaV2((INPUT_SIZE,)).get_model()
         cicada_v2.compile(optimizer=Adam(learning_rate=0.001), loss="mae")
         cv2_mc = ModelCheckpoint(f"{run_title}/models/{cicada_v2.name}", save_best_only=True)
-        cv2_log = CSVLogger(f"{run_title}/models/{cicada_v2.name}/training.log", append=True)'''
+        cv2_log = CSVLogger(f"{run_title}/models/{cicada_v2.name}/training.log", append=True)
 
         print(f"Training teachers on {X_train.shape[0]} events...")
         for epoch in tqdm(range(epochs)):
