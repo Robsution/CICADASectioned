@@ -224,9 +224,43 @@ def run_training(
             log["loss"], log["val_loss"], f"{run_title}/plots/{model.name}-training-history"
     )'''
 
+    teacher = keras.models.load_model(f"runs/{run_title}/models/teacher")
+    teachers_scn = [keras.models.load_model(f"runs/{run_title}/models/teacher_scn_{i+1}") for i in range(3)]
+    teacher_spr = keras.models.load_model(f"runs/{run_title}/models/teacher_spr")
+    #cicada_v1 = keras.models.load_model("models/cicada-v1")
+    #cicada_v2 = keras.models.load_model("models/cicada-v2")
+
     # Original model
     #cicada_v2 = from_pretrained_keras("cicada-project/cicada-v2.1")
 
+    print("Starting evaluation... plotting reconstruction examples")
+    # Reconstruction results
+    X_example = np.concatenate((X_train[:10], X_val[:10], X_test[:10]))
+    X_example = np.reshape(X_example, (30,18,14,1))
+    X_example_t = tf.convert_to_tensor(X_example)
+    #y_example_cic = cicada_v2.predict(X_example, verbose=verbose)
+    #draw.plot_reconstruction_results(X_example, y_example_cic, loss=loss(X_example, y_example_cic)[0], name="comparison_background_cicada")
+    y_example = teacher.predict(X_example, verbose=verbose)
+    y_example = np.reshape(y_example, (X_example.shape[0],1,18,14,1))
+    y_example_scn = [teachers_scn[i].predict(np.reshape(X_example[:,i*6:i*6+6],(-1,6,14,1)), verbose=verbose) for i in range(3)]
+    y_example_scn = np.reshape(y_example_scn, (X_example.shape[0],1,18,14,1))
+    y_example_spr = [teacher_spr.predict(np.reshape(X_example[:,i*6:i*6+6],(-1,6,14,1)), verbose=verbose) for i in range(3)]
+    y_example_spr = np.reshape(y_example_spr, (X_example.shape[0],1,18,14,1))
+    X_example = np.reshape(X_example, (X_example.shape[0],1,18,14,1))
+    for i in range(X_example.shape[0]): draw.plot_reconstruction_results(X_example_t[i], y_example[i], loss=loss(X_example_t[i], y_example[i])[0], name=f"comparison_background_{i}")
+    for i in range(X_example.shape[0]): draw.plot_reconstruction_results(X_example_t[i], y_example_scn[i], loss=loss(X_example_t[i], y_example_scn[i])[0], name=f"comparison_background_scn_{i}")
+    for i in range(X_example.shape[0]): draw.plot_reconstruction_results(X_example_t[i], y_example_spr[i], loss=loss(X_example_t[i], y_example_spr[i])[0], name=f"comparison_background_spr_{i}")
+
+    '''X_example = X_signal["SUSYGGBBH"][:1]
+    y_example = teacher.predict(X_example, verbose=verbose)
+    draw.plot_reconstruction_results(
+        X_example,
+        y_example,
+        loss=loss(X_example, y_example)[0],
+        name="comparison-signal",
+    )'''
+
+    print("Finished plotting reconstruction examples... plotting loss curves")
     # Training results
     if not os.path.exists(f"runs/{run_title}/plots"): os.makedirs(f"runs/{run_title}/plots")
     log = pd.read_csv(f"runs/{run_title}/models/teacher/training.log")
@@ -243,34 +277,7 @@ def run_training(
     log = pd.read_csv(f"runs/{run_title}/models/teacher_spr/training.log")
     draw.plot_loss_history(log["loss"], log["val_loss"], "teacher_spr_training_history")
 
-    teacher = keras.models.load_model(f"runs/{run_title}/models/teacher")
-    teachers_scn = [keras.models.load_model(f"runs/{run_title}/models/teacher_scn_{i+1}") for i in range(3)]
-    teacher_spr = keras.models.load_model(f"runs/{run_title}/models/teacher_spr")
-    #cicada_v1 = keras.models.load_model("models/cicada-v1")
-    #cicada_v2 = keras.models.load_model("models/cicada-v2")
-
-    # Reconstruction results
-    X_example = X_test[:1]
-    #y_example_cic = cicada_v2.predict(X_example, verbose=verbose)
-    #draw.plot_reconstruction_results(X_example, y_example_cic, loss=loss(X_example, y_example_cic)[0], name="comparison_background_cicada")
-    y_example = teacher.predict(X_example, verbose=verbose)
-    draw.plot_reconstruction_results(X_example, y_example, loss=loss(X_example, y_example)[0], name="comparison_background")
-    y_example_scn = [teachers_scn[i].predict(np.reshape(X_example[0,i*6:i*6+6],(1,6,14,1)), verbose=verbose) for i in range(3)]
-    y_example_scn = np.reshape(y_example_scn, (18,14,1))
-    draw.plot_reconstruction_results(X_example, y_example_scn, loss=loss(X_example, y_example_scn)[0], name="comparison_background_scn")
-    y_example_spr = [teacher_spr.predict(np.reshape(X_example[0,i*6:i*6+6],(1,6,14,1)), verbose=verbose) for i in range(3)]
-    y_example_spr = np.reshape(y_example_spr, (18,14,1))
-    draw.plot_reconstruction_results(X_example, y_example_spr, loss=loss(X_example, y_example_spr)[0], name="comparison_background_spr")
-
-    '''X_example = X_signal["SUSYGGBBH"][:1]
-    y_example = teacher.predict(X_example, verbose=verbose)
-    draw.plot_reconstruction_results(
-        X_example,
-        y_example,
-        loss=loss(X_example, y_example)[0],
-        name="comparison-signal",
-    )'''
-
+    print("Finished plotting loss curves... plotting anomaly score distribution")
     # Anomaly score distribution
     #y_pred_background_cicada_v2 = cicada_v2.predict(X_test, batch_size=512, verbose=verbose)
     #y_loss_background_cicada_v2 = loss(X_test, y_pred_background_cicada_v2)
@@ -355,6 +362,7 @@ def run_training(
         "anomaly-score-cicada-v2",
     )'''
 
+    print("Finished plotting anomaly score distribution... plotting scatter plots and finding score correlations")
     # Pearson correlation, mse. To be used with CICADA scores.
     #cicada_v2_teacher_corr = np.corrcoef(y_loss_background_cicada_v2, y_loss_background_teacher)
     #cicada_v2_teacher_scn_corr = np.corrcoef(y_loss_background_cicada_v2, y_loss_background_teacher_scn)
