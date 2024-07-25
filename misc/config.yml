@@ -24,42 +24,64 @@ background:
    use: False
  - path:
    - '/afs/hep.wisc.edu/home/andrewji/public/CICADASectionedData/test/phi_sliced.h5'
-   name: 'Test Training Set'
+   name: 'Test Training Set (wisc)'
    use: False
  - path:
    - '/afs/hep.wisc.edu/home/andrewji/public/CICADASectionedData/h5/B_phi_sliced.h5'
-   name: 'Training Set'
+   name: 'Training Set (wisc)'
    use: False
  - path:
    - '/eos/user/a/aji/CICADASectionedData/test/phi_sliced.h5'
-   name: 'Test Training Set'
+   name: 'Test Training Set (lxplus eos)'
    use: False
  - path:
    - '/eos/user/a/aji/CICADASectionedData/h5/B_phi_sliced.h5'
-   name: 'Training Set'
+   name: 'Training Set (lxplus eos)'
    use: False
  - path:
    - '/afs/hep.wisc.edu/home/andrewji/public/CICADASectionedData/h5/Background/ZB_RunA_0.h5'
-   name: '2023 ZB Run A (scp)'
+   name: '2023 ZB Run A (wisc)'
    use: True
  - path:
    - '/afs/hep.wisc.edu/home/andrewji/public/CICADASectionedData/h5/Background/ZB_RunB_0.h5'
-   name: '2023 ZB Run B (scp)'
+   name: '2023 ZB Run B (wisc)'
    use: True
  - path:
    - '/afs/hep.wisc.edu/home/andrewji/public/CICADASectionedData/h5/Background/ZB_RunC_0.h5'
-   name: '2023 ZB Run C (scp)'
+   name: '2023 ZB Run C (wisc)'
    use: True
  - path:
    - '/afs/hep.wisc.edu/home/andrewji/public/CICADASectionedData/h5/Background/ZB_RunD_0.h5'
-   name: '2023 ZB Run D (scp)'
+   name: '2023 ZB Run D (wisc)'
    use: True
  - path:
    - '/afs/hep.wisc.edu/home/andrewji/public/CICADASectionedData/h5/Background/EZB0_RunC_0.h5'
    - '/afs/hep.wisc.edu/home/andrewji/public/CICADASectionedData/h5/Background/EZB0_RunC_1.h5'
    - '/afs/hep.wisc.edu/home/andrewji/public/CICADASectionedData/h5/Background/EZB0_RunC_2.h5'
-   name: '2023 EZB Run C (scp)'
+   name: '2023 EZB Run C (wisc)'
    use: True
+ - path:
+   - '/afs/cern.ch/user/a/aji/public/CICADASectionedData/Background/ZB_RunA_0.h5'
+   name: '2023 ZB Run A (lxplus afs)'
+   use: False
+ - path:
+   - '/afs/cern.ch/user/a/aji/public/CICADASectionedData/Background/ZB_RunB_0.h5'
+   name: '2023 ZB Run B (lxplus afs)'
+   use: False
+ - path:
+   - '/afs/cern.ch/user/a/aji/public/CICADASectionedData/Background/ZB_RunC_0.h5'
+   name: '2023 ZB Run C (lxplus afs)'
+   use: False
+ - path:
+   - '/afs/cern.ch/user/a/aji/public/CICADASectionedData/Background/ZB_RunD_0.h5'
+   name: '2023 ZB Run D (lxplus afs)'
+   use: False
+ - path:
+   - '/afs/cern.ch/user/a/aji/public/CICADASectionedData/Background/EZB0_RunC_0.h5'
+   - '/afs/cern.ch/user/a/aji/public/CICADASectionedData/Background/EZB0_RunC_1.h5'
+   - '/afs/cern.ch/user/a/aji/public/CICADASectionedData/Background/EZB0_RunC_2.h5'
+   name: '2023 EZB Run C (lxplus afs)'
+   use: False
 
 signal:
  - path:
