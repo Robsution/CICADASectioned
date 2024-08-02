@@ -11,15 +11,23 @@ from pathlib import Path
 from sklearn.metrics import roc_curve, auc
 from sklearn.model_selection import StratifiedKFold
 from typing import List
+from scipy.optimize import curve_fit
 
 
 class Draw:
     def __init__(self, output_dir: Path = Path("plots")):
         self.output_dir = output_dir
         self.cmap = ["green", "red", "blue", "orange", "purple", "brown"]
-        self.models = ["Zero Bias (cicada_v2)", "Zero Bias (teacher)", "Zero Bias (teacher_scn)", "Zero Bias (teacher_spr)"]
+        self.signals = ["Zero Bias", "SUEP", "HtoLongLived", "VBHFto2C", "TT", "SUSYGGBBH"]
+        self.models_long = ["cicada", "section", "super"]
+        self.models_short = ["cic", "scn", "spr"]
+        self.signals_cmap = {}
+        for key, value in zip(self.signals, self.cmap):
+            self.signals_cmap[key] = value
         self.models_cmap = {}
-        for key, value in zip(self.models, self.cmap):
+        for key, value in zip(self.models_long, self.cmap):
+            self.models_cmap[key] = value
+        for key, value in zip(self.models_short, self.cmap):
             self.models_cmap[key] = value
         hep.style.use("CMS")
 
@@ -28,20 +36,21 @@ class Draw:
         return name.replace(" ", "-").lower()
 
     def plot_loss_history(
-        self, training_loss: npt.NDArray, validation_loss: npt.NDArray, name: str
+        self, training_loss: npt.NDArray, validation_loss: npt.NDArray, name: str, ylim = [1.0, 3.0]
     ):
         plt.plot(np.arange(1, len(training_loss) + 1), training_loss, label="Training")
         plt.plot(np.arange(1, len(validation_loss) + 1), validation_loss, label="Validation")
         plt.legend(loc="upper right")
         plt.xlabel("Epoch")
         plt.ylabel("Loss")
+        plt.ylim(ylim[0], ylim[1])
         plt.savefig(
             f"{self.output_dir}/{self._parse_name(name)}.png", bbox_inches="tight"
         )
         plt.close()
 
     def plot_multiple_loss_history(
-        self, losses, name: str
+        self, losses, name: str, ylim = [1.0, 3.0]
     ):
         nLosses = len(losses)
         for i in range(nLosses):
@@ -50,8 +59,19 @@ class Draw:
         plt.legend(loc="upper right")
         plt.xlabel("Epoch")
         plt.ylabel("Loss")
+        plt.ylim(ylim[0], ylim[1])
         plt.savefig(
             f"{self.output_dir}/{self._parse_name(name)}.png", bbox_inches="tight"
+        )
+        plt.close()
+
+    def plot_deposits(self, deposits: npt.NDArray, name: str):
+        plt.imshow(deposits, vmin=0, vmax = deposits.max(), cmap="Purples")
+        plt.xlabel(r"i$\eta$")
+        plt.ylabel(r"i$\phi$")
+        plt.savefig(
+            f"{self.output_dir}/deposits_{self._parse_name(name)}.png",
+            bbox_inches="tight",
         )
         plt.close()
 
@@ -143,7 +163,7 @@ class Draw:
         fig, (ax1, ax2, ax3, cax) = plt.subplots(
             ncols=4, figsize=(15, 10), gridspec_kw={"width_ratios": [1, 1, 1, 0.05]}
         )
-        max_deposit = max(deposits_in.max(), deposits_out.max())
+        max_deposit = deposits_in.max()
 
         ax1 = plt.subplot(1, 4, 1)
         ax1.get_xaxis().set_visible(False)
@@ -164,7 +184,7 @@ class Draw:
         ax3 = plt.subplot(1, 4, 3)
         ax3.get_xaxis().set_visible(False)
         ax3.get_yaxis().set_visible(False)
-        ax3.set_title(rf"|$\Delta$|, MSE: {loss: .2f}", fontsize=18)
+        ax3.set_title(rf"|$\Delta$|, MSE: {loss: .5f}", fontsize=18)
 
         im = ax3.imshow(
             np.abs(deposits_in - deposits_out).reshape(18, 14),
@@ -236,17 +256,23 @@ class Draw:
         plt.close()
 
     def plot_anomaly_score_distribution(
-        self, scores: List[npt.NDArray], labels: List[str], name: str
+        self, scores: List[npt.NDArray], labels: List[str], name: str, xlim = [0, 256]
     ):
         for score, label in zip(scores, labels):
+            if label in self.signals_cmap: color = self.signals_cmap[label]
+            elif label in self.models_cmap: color = self.models_cmap[label]
+            score_tmp = np.array([])
+            for i in range(score.shape[0]):
+                score_tmp = np.append(score_tmp, score[i].flatten())
             plt.hist(
-                score.reshape((-1)),
+                score_tmp.reshape((-1)),
                 bins=100,
-                range=(0, 256),
+                range=(xlim[0], xlim[1]),
                 density=1,
                 label=label,
                 log=True,
                 histtype="step",
+                color=color,
             )
         plt.xlabel(r"Anomaly Score")
         plt.legend(loc="center left", bbox_to_anchor=(1, 0.5))
@@ -265,8 +291,8 @@ class Draw:
         cv: int = 3,
     ):
         skf = StratifiedKFold(n_splits=cv, shuffle=True, random_state=42)
-        for y_true, y_pred, label, color, d in zip(
-            y_trues, y_preds, labels, self.cmap, inputs
+        for y_true, y_pred, label, d in zip(
+            y_trues, y_preds, labels, inputs
         ):
             aucs = []
             for _, indices in skf.split(y_pred, y_true):
@@ -277,6 +303,9 @@ class Draw:
             fpr, tpr, _ = roc_curve(y_true, y_pred)
             roc_auc = auc(fpr, tpr)
             fpr_base, tpr_base, _ = roc_curve(y_true, np.mean(d**2, axis=(1, 2)))
+            #label = label.split()[0]
+            if label in self.signals_cmap: color = self.signals_cmap[label]
+            elif label in self.models_cmap: color = self.models_cmap[label]
 
             plt.plot(
                 fpr * 28.61,
@@ -486,12 +515,35 @@ class Draw:
         plt.close()
 
     def plot_scatter_score_comparison(
-        self, x: npt.NDArray, y: npt.NDArray, x_title: str, y_title: str, name: str
+        self, x: npt.NDArray, y: npt.NDArray, x_title: str, y_title: str, name: str, limits: str = "fit"
     ):
-        plt.scatter(x, y, s=1)
-        max_val = np.max([x, y])
-        plt.xlim(0, max_val)
-        plt.ylim(0, max_val)
+        for signal in list(self.signals_cmap.keys()):
+            if signal in name: scatter_color = self.signals_cmap[signal]
+        x_tmp = np.array([])
+        y_tmp = np.array([])
+        for i in range(len(x)):
+            x_tmp = np.append(x_tmp, x[i].flatten())
+            y_tmp = np.append(y_tmp, y[i].flatten())
+        x_tmp = np.reshape(x_tmp, (-1))
+        y_tmp = np.reshape(y_tmp, (-1))
+        plt.scatter(x_tmp, y_tmp, s=1, color = scatter_color)
+        if(limits=="equal"):
+            max_val_x = np.sort(np.array([x_tmp, y_tmp]), axis=None)[int(-0.05 * (x_tmp.shape[0]+y_tmp.shape[0]))]
+            max_val_y = max_val_x
+        elif(limits=="fit"):
+            max_val_x = np.sort(np.array([x_tmp]), axis=None)[int(-0.05 * x_tmp.shape[0])]
+            max_val_y = np.sort(np.array([y_tmp]), axis=None)[int(-0.05 * y_tmp.shape[0])]
+        elif(limits=="equalsignal"):
+            max_val_x = 16
+            max_val_y = 16
+        plt.xlim(0, max_val_x)
+        plt.ylim(0, max_val_y)
+        def f(x, m):
+            return m*x
+        popt, pcov = curve_fit(f, x_tmp, y_tmp)
+        x_line = np.linspace(0, max_val_x)
+        y_line = f(x_line, popt[0])
+        plt.plot(x_line, y_line, color = "black")
         plt.xlabel(x_title)
         plt.ylabel(y_title)
         plt.savefig(
@@ -499,14 +551,18 @@ class Draw:
             bbox_inches="tight",
         )
         plt.close()
+        return popt
 
     def plot_anomaly_scores_distribution(
         self, score_list: List[List[npt.NDArray]], label_list: List[str], name: str
     ):
         for scores, label in zip(score_list, label_list):
             for score in scores:
+                score_tmp = np.array([])
+                for i in range(len(score)):
+                    score_tmp = np.append(score_tmp, score[i].flatten())
                 plt.hist(
-                    score.reshape((-1)),
+                    score_tmp.reshape((-1)),
                     alpha=0.5,
                     bins=100,
                     range=(0, 256),
@@ -514,7 +570,7 @@ class Draw:
                     label=label,
                     log=True,
                     histtype="step",
-                    color=self.models_cmap[label]
+                    color=self.signals_cmap[label]
                 )
         plt.xlabel("Anomaly Score")
         plt.legend(loc="center left", bbox_to_anchor=(1, 0.5))
@@ -539,3 +595,19 @@ class Draw:
             f"{self.output_dir}/mean_deposits_scn_{self._parse_name(name)}.png", bbox_inches="tight"
         )
         plt.close()
+
+    def plot_mse(
+        self, mse: npt.NDArray, bottleneck_sizes: npt.NDArray,
+    ):
+        # mse has shape (model type, signal type, bottleneck size)
+        for i in range(mse.shape[1]):
+            for j in range(mse.shape[0]):
+                plt.plot(bottleneck_sizes[0], mse[j,i], color = self.models_cmap[self.models_long[j]], label = self.models_long[j])
+            plt.title(f"MSE ({self.signals[i]}) vs Latent Space")
+            plt.xlabel("Latent Space")
+            plt.ylabel("MSE")
+            plt.legend()
+            plt.savefig(
+                f"{self.output_dir}/mse_{self._parse_name(self.signals[i])}.png", bbox_inches="tight"
+            )
+            plt.close()

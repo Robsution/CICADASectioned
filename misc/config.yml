@@ -41,47 +41,47 @@ background:
  - path:
    - '/afs/hep.wisc.edu/home/andrewji/public/CICADASectionedData/h5/Background/ZB_RunA_0.h5'
    name: '2023 ZB Run A (wisc)'
-   use: True
+   use: False
  - path:
    - '/afs/hep.wisc.edu/home/andrewji/public/CICADASectionedData/h5/Background/ZB_RunB_0.h5'
    name: '2023 ZB Run B (wisc)'
-   use: True
+   use: False
  - path:
    - '/afs/hep.wisc.edu/home/andrewji/public/CICADASectionedData/h5/Background/ZB_RunC_0.h5'
    name: '2023 ZB Run C (wisc)'
-   use: True
+   use: False
  - path:
    - '/afs/hep.wisc.edu/home/andrewji/public/CICADASectionedData/h5/Background/ZB_RunD_0.h5'
    name: '2023 ZB Run D (wisc)'
-   use: True
+   use: False
  - path:
    - '/afs/hep.wisc.edu/home/andrewji/public/CICADASectionedData/h5/Background/EZB0_RunC_0.h5'
    - '/afs/hep.wisc.edu/home/andrewji/public/CICADASectionedData/h5/Background/EZB0_RunC_1.h5'
    - '/afs/hep.wisc.edu/home/andrewji/public/CICADASectionedData/h5/Background/EZB0_RunC_2.h5'
    name: '2023 EZB Run C (wisc)'
-   use: True
+   use: False
  - path:
    - '/afs/cern.ch/user/a/aji/public/CICADASectionedData/Background/ZB_RunA_0.h5'
    name: '2023 ZB Run A (lxplus afs)'
-   use: False
+   use: True
  - path:
    - '/afs/cern.ch/user/a/aji/public/CICADASectionedData/Background/ZB_RunB_0.h5'
    name: '2023 ZB Run B (lxplus afs)'
-   use: False
+   use: True
  - path:
    - '/afs/cern.ch/user/a/aji/public/CICADASectionedData/Background/ZB_RunC_0.h5'
    name: '2023 ZB Run C (lxplus afs)'
-   use: False
+   use: True
  - path:
    - '/afs/cern.ch/user/a/aji/public/CICADASectionedData/Background/ZB_RunD_0.h5'
    name: '2023 ZB Run D (lxplus afs)'
-   use: False
+   use: True
  - path:
    - '/afs/cern.ch/user/a/aji/public/CICADASectionedData/Background/EZB0_RunC_0.h5'
    - '/afs/cern.ch/user/a/aji/public/CICADASectionedData/Background/EZB0_RunC_1.h5'
    - '/afs/cern.ch/user/a/aji/public/CICADASectionedData/Background/EZB0_RunC_2.h5'
    name: '2023 EZB Run C (lxplus afs)'
-   use: False
+   use: True
 
 signal:
  - path:
@@ -106,24 +106,44 @@ signal:
    use: False
  - path:
    - '/afs/hep.wisc.edu/home/andrewji/public/CICADASectionedData/h5/Signal/SUEP.h5'
-   name: 'SUEP'
+   name: 'SUEP (wisc)'
    use: False
  - path:
    - '/afs/hep.wisc.edu/home/andrewji/public/CICADASectionedData/h5/Signal/H_ToLongLived.h5'
-   name: 'HtoLongLived'
+   name: 'HtoLongLived (wisc)'
    use: False
  - path:
    - '/afs/hep.wisc.edu/home/andrewji/public/CICADASectionedData/h5/Signal/VBFHto2C.h5'
-   name: 'VBHFto2C'
+   name: 'VBHFto2C (wisc)'
    use: False
  - path:
    - '/afs/hep.wisc.edu/home/andrewji/public/CICADASectionedData/h5/Signal/TT.h5'
-   name: 'TT' 
+   name: 'TT (wisc)'
    use: False
  - path:
    - '/afs/hep.wisc.edu/home/andrewji/public/CICADASectionedData/h5/Signal/SUSYGGBBH.h5'
-   name: 'SUSYGGBBH'
+   name: 'SUSYGGBBH (wisc)'
    use: False
+ - path:
+   - '/afs/cern.ch/user/a/aji/public/CICADASectionedData/Signal/SUEP.h5'
+   name: 'SUEP (lxplus afs)'
+   use: True
+ - path:
+   - '/afs/cern.ch/user/a/aji/public/CICADASectionedData/Signal/H_ToLongLived.h5'
+   name: 'HtoLongLived (lxplus afs)'
+   use: True
+ - path:
+   - '/afs/cern.ch/user/a/aji/public/CICADASectionedData/Signal/VBFHto2C.h5'
+   name: 'VBHFto2C (lxplus afs)'
+   use: True
+ - path:
+   - '/afs/cern.ch/user/a/aji/public/CICADASectionedData/Signal/TT.h5'
+   name: 'TT (lxplus afs)'
+   use: True
+ - path:
+   - '/afs/cern.ch/user/a/aji/public/CICADASectionedData/Signal/SUSYGGBBH.h5'
+   name: 'SUSYGGBBH (lxplus afs)'
+   use: True
 
 exposure:
  training:

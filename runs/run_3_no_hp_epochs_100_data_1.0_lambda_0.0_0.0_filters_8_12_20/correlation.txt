@@ -1,0 +1,40 @@
+Trained on 505940 events
+scn_corr_Zero Bias:
+1.0
+M: [1.04932943]
+spr_corr_Zero Bias:
+1.0
+M: [1.01692767]
+scn_corr_SUEP:
+0.9402492557246119
+M: [0.99965244]
+spr_corr_SUEP:
+0.9589178019827499
+M: [0.99141401]
+scn_corr_HtoLongLived:
+0.940249255724612
+M: [0.98958671]
+spr_corr_HtoLongLived:
+0.9589178019827499
+M: [0.9770456]
+scn_corr_VBHFto2C:
+1.0
+M: [0.87695935]
+spr_corr_VBHFto2C:
+1.0
+M: [0.8854784]
+scn_corr_TT:
+1.0
+M: [0.98530912]
+spr_corr_TT:
+1.0
+M: [0.96525494]
+scn_corr_SUSYGGBBH:
+0.7680731798816776
+M: [0.96462083]
+spr_corr_SUSYGGBBH:
+0.8165184792584402
+M: [0.94628069]
+Total time: 999.8446528911591
+Data/generator time: 205.30067443847656
+Evaluation time: 794.5439772605896

@@ -81,6 +81,7 @@ class RegionETGenerator:
                 )
         for i in range(3):
             inputs[i] = np.concatenate(inputs[i])
+            inputs[i] = np.reshape(inputs[i], (-1, 6, 14, 1))
         return inputs
 
         '''inputs = []
@@ -133,16 +134,6 @@ class RegionETGenerator:
         X_val = np.swapaxes(np.array(X_val), 0, 1)
         X_test = np.swapaxes(np.array(X_test), 0, 1)
         return (X_train[:int(data_to_use*X_train.shape[0])], X_val[:int(data_to_use*X_val.shape[0])], X_test[:int(data_to_use*X_test.shape[0])])
-        '''X = self.get_sectioned_data(datasets_paths)
-        X_train, X_test = train_test_split(
-            X, test_size=self.test_size, random_state=self.random_state
-        )
-        X_train, X_val = train_test_split(
-            X_train,
-            test_size=self.val_size / (self.val_size + self.train_size),
-            random_state=self.random_state,
-        )
-        return (X_train[:int(data_to_use*X_train.shape[0])], X_val[:int(data_to_use*X_val.shape[0])], X_test[:int(data_to_use*X_train.shape[0])])'''
 
     def get_super_data_split(
         self, datasets_paths: List[Path], data_to_use: float
@@ -151,52 +142,19 @@ class RegionETGenerator:
         len_train = X_train.shape[0]
         len_val = X_val.shape[0]
         len_test = X_test.shape[0]
-        X_train = np.reshape(X_train, (-1,6,14,1))
-        X_val = np.reshape(X_val, (-1,6,14,1))
-        X_test = np.reshape(X_test, (-1,6,14,1))
-        np.random.shuffle(X_train)
-        np.random.shuffle(X_val)
-        np.random.shuffle(X_test)
-        return (X_train[:len_train], X_val[:len_val], X_test[:len_test])
-        '''X = self.get_sectioned_data(datasets_paths)
-        X_train, X_val, X_test, X_trainval = np.zeros((0,6,14,1)), np.zeros((0,6,14,1)), np.zeros((0,6,14,1)), []
-        print(X.shape)
-        for i in range(3):
-            X_train_temp, X_test_temp = train_test_split(
-                X[i], test_size=self.test_size, random_state=self.random_state
-            )
-            X_trainval.append(np.copy(X_train_temp))
-            X_test = np.append(X_test, X_test_temp, axis=0)
-
-        print(X_trainval[0].shape)
-        for i in range(3):
-            X_train_temp, X_val_temp = train_test_split(
-                X_trainval[i], test_size=self.val_size / (self.val_size + self.train_size), random_state=self.random_state
-            )
-            print(X_train_temp.shape)
-            print(X_train.shape)
-            X_train = np.append(X_train, X_train_temp, axis=0)
-            X_val = np.append(X_val, X_val_temp, axis=0)'''
-
-#        X_train, X_test = train_test_split(
-#            X, test_size=self.test_size, random_state=self.random_state
-#        )
-
-#        X_train, X_val = train_test_split(
-#            X_train,
-#            test_size=self.val_size / (self.val_size + self.train_size),
-#            random_state=self.random_state,
-#        )
-
-
-        '''X_train = np.swapaxes(X_train, 0, 1)
-        X_train = np.reshape(X, (-1, 3, 6, 14, 1))
-        X_val = np.swapaxes(X_val, 0, 1)
-        X_val = np.reshape(X, (-1, 3, 6, 14, 1))
-        X_test = np.swapaxes(X_test, 0, 1)
-        X_test = np.reshape(X, (-1, 3, 6, 14, 1))
-
-        return (X_train, X_val, X_test)'''
+        train_select = np.random.choice([0,1,2], (len_train))
+        val_select = np.random.choice([0,1,2], (len_val))
+        test_select = np.random.choice([0,1,2], (len_test))
+        X_train_tmp = np.zeros((len_train, 6, 14, 1))
+        for i in range(X_train.shape[0]): X_train_tmp[i] = X_train[i,train_select[i]]
+        X_val_tmp = np.zeros((len_val, 6, 14, 1))
+        for i in range(X_val.shape[0]): X_val_tmp[i] = X_val[i,val_select[i]]
+        X_test_tmp = np.zeros((len_test, 6, 14, 1))
+        for i in range(X_test.shape[0]): X_test_tmp[i] = X_test[i,test_select[i]]
+        X_train_tmp = np.reshape(X_train_tmp, (-1, 6, 14, 1))
+        X_val_tmp = np.reshape(X_val_tmp, (-1, 6, 14, 1))
+        X_test_tmp = np.reshape(X_test_tmp, (-1, 6, 14, 1))
+        return (X_train_tmp, X_val_tmp, X_test_tmp)
 
     def get_benchmark(
         self, datasets: dict, filter_acceptance=True
@@ -209,7 +167,7 @@ class RegionETGenerator:
             signal_name = dataset["name"]
             for dataset_path in dataset["path"]:
                 X = h5py.File(dataset_path, "r")["CaloRegions"][:].astype("float32")
-                X = np.reshape(X, (-1, 6, 14, 1))
+                X = np.reshape(X, (-1, 18, 14, 1))
                 try:
                     flags = h5py.File(dataset_path, "r")["AcceptanceFlag"][:].astype(
                         "bool"
@@ -220,5 +178,90 @@ class RegionETGenerator:
                 if filter_acceptance:
                     X = X[flags]
                 signals[signal_name] = X
+                acceptance.append({"signal": signal_name, "acceptance": fraction})
+        return signals, acceptance
+
+    def get_benchmark_decorr(
+        self, datasets: dict, filter_acceptance=True
+    ) -> Tuple[dict, list]:
+        signals = {}
+        acceptance = []
+        for dataset in datasets:
+            if not dataset["use"]:
+                continue
+            signal_name = dataset["name"]
+            for dataset_path in dataset["path"]:
+                X = h5py.File(dataset_path, "r")["CaloRegions"][:].astype("float32")
+                X = np.reshape(X, (-1, 18, 14, 1))
+                for i in range(X.shape[0]):
+                    X[i] = X[i] / np.sum(X[i])
+                try:
+                    flags = h5py.File(dataset_path, "r")["AcceptanceFlag"][:].astype(
+                        "bool"
+                    )
+                    fraction = np.round(100 * sum(flags) / len(flags), 2)
+                except KeyError:
+                    fraction = 100.0
+                if filter_acceptance:
+                    X = X[flags]
+                signals[signal_name] = X
+                acceptance.append({"signal": signal_name, "acceptance": fraction})
+        return signals, acceptance
+
+    def get_sectioned_benchmarks_decorr(
+        self, datasets: dict, filter_acceptance=True
+    ) -> list[Tuple[dict, list]]:
+        signals = [{}, {}, {}]
+        acceptance = []
+        for dataset in datasets:
+            if not dataset["use"]:
+                continue
+            signal_name = dataset["name"]
+            for dataset_path in dataset["path"]:
+                X = h5py.File(dataset_path, "r")["CaloRegions"][:].astype("float32")
+                X = np.reshape(X, (-1, 18, 14, 1))
+                X_scn = []
+                for i in range(3):
+                    X_scn.append(X[:, i*6:i*6+6] / np.sum(X[:, i*6:i*6+6]))
+                try:
+                    flags = h5py.File(dataset_path, "r")["AcceptanceFlag"][:].astype(
+                        "bool"
+                    )
+                    fraction = np.round(100 * sum(flags) / len(flags), 2)
+                except KeyError:
+                    fraction = 100.0
+                if filter_acceptance:
+                    X = X[flags]
+                for i in range(3):
+                    signals[i][signal_name] = X_scn[i]
+                acceptance.append({"signal": signal_name, "acceptance": fraction})
+        return signals, acceptance
+
+    def get_sectioned_benchmarks(
+        self, datasets: dict, filter_acceptance=True
+    ) -> list[Tuple[dict, list]]:
+        signals = [{}, {}, {}]
+        acceptance = []
+        for dataset in datasets:
+            if not dataset["use"]:
+                continue
+            signal_name = dataset["name"]
+            for dataset_path in dataset["path"]:
+                X = h5py.File(dataset_path, "r")["CaloRegions"][:].astype("float32")
+                X = np.reshape(X, (-1, 18, 14, 1))
+                X_scn = []
+                for i in range(3):
+                    X_scn.append(X[:, i*6:i*6+6])
+                try:
+                    flags = h5py.File(dataset_path, "r")["AcceptanceFlag"][:].astype(
+                        "bool"
+                    )
+                    fraction = np.round(100 * sum(flags) / len(flags), 2)
+                except KeyError:
+                    fraction = 100.0
+                if filter_acceptance:
+                    X = X[flags]
+                for i in range(3):
+                    signals[i][signal_name] = X_scn[i]
                 acceptance.append({"signal": signal_name, "acceptance": fraction})
         return signals, acceptance

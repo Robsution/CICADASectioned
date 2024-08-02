@@ -1,0 +1,42 @@
+Trained on 50594 events
+teacher_teacher_scn_background_corr:
+[[1.         0.98889719]
+ [0.98889719 1.        ]]
+M: [2.49016778]
+teacher_teacher_spr_background_corr:
+[[1.         0.97269994]
+ [0.97269994 1.        ]]
+M: [2.3652428]
+teacher_teacher_scn_signal_corr_SUEP:
+0.9999999999999998
+M: [1.56808684]
+teacher_teacher_spr_signal_corr_SUEP:
+0.9999999999999998
+M: [1.57775541]
+teacher_teacher_scn_signal_corr_HtoLongLived:
+0.8826841473306343
+M: [1.59927274]
+teacher_teacher_spr_signal_corr_HtoLongLived:
+0.6990467394837622
+M: [1.58998141]
+teacher_teacher_scn_signal_corr_VBHFto2C:
+0.8826841473306342
+M: [1.51232183]
+teacher_teacher_spr_signal_corr_VBHFto2C:
+0.6990467394837622
+M: [1.55373631]
+teacher_teacher_scn_signal_corr_TT:
+1.0
+M: [1.56581724]
+teacher_teacher_spr_signal_corr_TT:
+1.0
+M: [1.57915592]
+teacher_teacher_scn_signal_corr_SUSYGGBBH:
+1.0
+M: [1.57059914]
+teacher_teacher_spr_signal_corr_SUSYGGBBH:
+1.0
+M: [1.60876101]
+Total time: 101.26715755462646
+Data/generator time: 25.938528537750244
+Evaluation time: 75.32862854003906
