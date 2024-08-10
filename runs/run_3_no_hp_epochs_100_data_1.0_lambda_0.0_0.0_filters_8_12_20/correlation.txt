@@ -35,6 +35,11 @@ M: [0.96462083]
 spr_corr_SUSYGGBBH:
 0.8165184792584402
 M: [0.94628069]
-Total time: 999.8446528911591
-Data/generator time: 205.30067443847656
-Evaluation time: 794.5439772605896
+Total time: 914.9971790313721
+Data/generator time: 18.317808628082275
+Evaluation time: 896.6793694496155
+Teacher: None
+Teacher_scn1: None
+Teacher_scn2: None
+Teacher_scn3: None
+Teacher_spr: None

@@ -25,6 +25,7 @@ from tensorflow.keras.callbacks import ModelCheckpoint, CSVLogger
 from tensorflow.keras.optimizers import Adam
 from typing import List
 from utils import IsValidFile
+from scipy.stats import wasserstein_distance
 #from huggingface_hub import from_pretrained_keras
 
 from qkeras import *
@@ -97,54 +98,60 @@ def run_training(
     model_names_long = ["cicada", "section", "super"]
 
 
-    bottleneck_sizes = np.array([np.arange(start=30, stop=96, step=6),
-                                 np.arange(start=10, stop = 32, step=2),
-                                 np.arange(start=10, stop = 32, step=2)])
-    mse = np.zeros((len(model_names_short), len(signal_names), bottleneck_sizes.shape[1]))
+    gen = RegionETGenerator()
+    X_train, X_val, X_test = gen.get_data_split(datasets_background, data_to_use)
+    X_scn_train, X_scn_val, _ = gen.get_sectioned_data_split(datasets_background, data_to_use)
+    X_spr_train, X_spr_val, _ = gen.get_super_data_split(datasets_background, data_to_use)
+
+    X_test = [X_test]
+    for i in range(len(datasets_signal)):
+        X_train_tmp, X_val_tmp, X_test_tmp = gen.get_data_split([datasets_signal[i]], 1.0)
+        X_tmp = np.concatenate((X_train_tmp, X_val_tmp, X_test_tmp), axis=0)
+        X_test.append(X_tmp)
+
+
+    bottleneck_sizes = np.array([np.arange(start=30, stop=93, step=3),
+                                 np.arange(start=10, stop = 31, step=1),
+                                 np.arange(start=10, stop = 31, step=1)])
+    mse = np.zeros((len(model_names_short), len(signal_names), bottleneck_sizes.shape[1], 2))
+    auc = np.zeros((len(model_names_short), len(signal_names)-1, bottleneck_sizes.shape[1], 2))
+
     for k in tqdm(range(bottleneck_sizes.shape[1])):
-        t1 = time.time()
-        draw = Draw(output_dir=f"runs/{run_title}/plots/{bottleneck_sizes[0,k]}_{bottleneck_sizes[1,k]}")
+
         if not os.path.exists(f"runs/{run_title}/plots/{bottleneck_sizes[0,k]}_{bottleneck_sizes[1,k]}"): os.makedirs(f"runs/{run_title}/plots/{bottleneck_sizes[0,k]}_{bottleneck_sizes[1,k]}")
-        gen = RegionETGenerator()
-        X_train, X_val, X_test = gen.get_data_split(datasets_background, data_to_use)
-        X_scn_train, X_scn_val, _ = gen.get_sectioned_data_split(datasets_background, data_to_use)
-        X_spr_train, X_spr_val, _ = gen.get_super_data_split(datasets_background, data_to_use)
 
-        X_test = [X_test]
-        for i in range(len(datasets_signal)):
-            X_train_tmp, X_val_tmp, X_test_tmp = gen.get_data_split([datasets_signal[i]], 1.0)
-            X_tmp = np.concatenate((X_train_tmp, X_val_tmp, X_test_tmp), axis=0)
-            X_test.append(X_tmp)
-
-        gen_train = gen.get_generator(X_train, X_train, 512, True)
+        '''gen_train = gen.get_generator(X_train, X_train, 512, True)
         gen_val = gen.get_generator(X_val, X_val, 512)
         gen_scn_train = [gen.get_generator(np.reshape(X_scn_train[:,i], (-1,6,14,1)), np.reshape(X_scn_train[:,i], (-1,6,14,1)), 512) for i in range(3)]
         gen_scn_val = [gen.get_generator(np.reshape(X_scn_val[:,i], (-1,6,14,1)), np.reshape(X_scn_val[:,i], (-1,6,14,1)), 512) for i in range(3)]
         gen_spr_train = gen.get_generator(X_spr_train, X_spr_train, 512, True)
-        gen_spr_val = gen.get_generator(X_spr_val, X_spr_val, 512)
+        gen_spr_val = gen.get_generator(X_spr_val, X_spr_val, 512)'''
 
-        teacher = TeacherAutoencoder((18, 14, 1), Lambda=[0.0, 0.0], filters=[20, 30, bottleneck_sizes[0,k]], pooling = (2, 2), search=False, compile=False, name=f"teacher_{bottleneck_sizes[0,k]}").get_model(hp=None)
-        teachers_scn = [TeacherScnAutoencoder((6, 14, 1), Lambda=Lambda, filters=[8, 12, bottleneck_sizes[1,k]], pooling = pooling, search=False, compile=False, name=f"teacher_scn_{j+1}_{bottleneck_sizes[1,k]}").get_model(hp=None) for j in range(3)]
-        teacher_spr = TeacherScnAutoencoder((6, 14, 1), Lambda=Lambda, filters=[8, 12, bottleneck_sizes[1,k]], pooling = pooling, search=False, compile=False, name=f"teacher_spr_{bottleneck_sizes[2,k]}").get_model(hp=None)
+        if not eval_only:
+            teacher = TeacherAutoencoder((18, 14, 1), Lambda=[0.0, 0.0], filters=[20, 30, bottleneck_sizes[0,k]], pooling = (2, 2), search=False, compile=False, name=f"teacher_{bottleneck_sizes[0,k]}").get_model(hp=None)
+            teachers_scn = [TeacherScnAutoencoder((6, 14, 1), Lambda=Lambda, filters=[8, 12, bottleneck_sizes[1,k]], pooling = pooling, search=False, compile=False, name=f"teacher_scn_{j+1}_{bottleneck_sizes[1,k]}").get_model(hp=None) for j in range(3)]
+            teacher_spr = TeacherScnAutoencoder((6, 14, 1), Lambda=Lambda, filters=[8, 12, bottleneck_sizes[1,k]], pooling = pooling, search=False, compile=False, name=f"teacher_spr_{bottleneck_sizes[2,k]}").get_model(hp=None)
 
-        teacher.compile(optimizer=Adam(learning_rate=0.001), loss="mse")
-        t_mc = ModelCheckpoint(f"runs/{run_title}/models/{teacher.name}", save_best_only=True)
-        t_log = CSVLogger(f"runs/{run_title}/models/{teacher.name}/training.log", append=True)
+            teacher.compile(optimizer=Adam(learning_rate=0.001), loss="mse")
+            t_mc = ModelCheckpoint(f"runs/{run_title}/models/{teacher.name}", save_best_only=True)
+            t_log = CSVLogger(f"runs/{run_title}/models/{teacher.name}/training.log", append=True)
 
-        for i in range(3): teachers_scn[i].compile(optimizer=Adam(learning_rate=0.001), loss="mse")
-        ts_scn_mc = [ModelCheckpoint(f"runs/{run_title}/models/teacher_scn_{i+1}_{bottleneck_sizes[1,k]}", save_best_only=True) for i in range(3)]
-        ts_scn_log = [CSVLogger(f"runs/{run_title}/models/teacher_scn_{i+1}_{bottleneck_sizes[1,k]}/training.log", append=True) for i in range(3)]
+            for i in range(3): teachers_scn[i].compile(optimizer=Adam(learning_rate=0.001), loss="mse")
+            ts_scn_mc = [ModelCheckpoint(f"runs/{run_title}/models/teacher_scn_{i+1}_{bottleneck_sizes[1,k]}", save_best_only=True) for i in range(3)]
+            ts_scn_log = [CSVLogger(f"runs/{run_title}/models/teacher_scn_{i+1}_{bottleneck_sizes[1,k]}/training.log", append=True) for i in range(3)]
 
-        teacher_spr.compile(optimizer=Adam(learning_rate=0.001), loss="mse")
-        t_spr_mc = ModelCheckpoint(f"runs/{run_title}/models/teacher_spr_{bottleneck_sizes[2,k]}", save_best_only=True)
-        t_spr_log = CSVLogger(f"runs/{run_title}/models/teacher_spr_{bottleneck_sizes[2,k]}/training.log", append=True)
+            teacher_spr.compile(optimizer=Adam(learning_rate=0.001), loss="mse")
+            t_spr_mc = ModelCheckpoint(f"runs/{run_title}/models/teacher_spr_{bottleneck_sizes[2,k]}", save_best_only=True)
+            t_spr_log = CSVLogger(f"runs/{run_title}/models/teacher_spr_{bottleneck_sizes[2,k]}/training.log", append=True)
 
-        print(f"Training teachers on {X_train.shape[0]} events...")
-        for epoch in tqdm(range(epochs)):
-            train_model(teacher, gen_train, gen_val, epoch=epoch, callbacks=[t_mc, t_log], verbose=verbose)
-            for i in range(3):
-                train_model(teachers_scn[i], gen_scn_train[i], gen_scn_val[i], epoch=epoch, callbacks=[ts_scn_mc[i], ts_scn_log[i]], verbose=verbose)
-            train_model(teacher_spr, gen_spr_train, gen_spr_val, epoch=epoch, callbacks=[t_spr_mc, t_spr_log], verbose=verbose)
+            print(f"Training teachers on {X_train.shape[0]} events...")
+            for epoch in tqdm(range(epochs)):
+                train_model(teacher, gen_train, gen_val, epoch=epoch, callbacks=[t_mc, t_log], verbose=verbose)
+                for i in range(3):
+                    train_model(teachers_scn[i], gen_scn_train[i], gen_scn_val[i], epoch=epoch, callbacks=[ts_scn_mc[i], ts_scn_log[i]], verbose=verbose)
+                train_model(teacher_spr, gen_spr_train, gen_spr_val, epoch=epoch, callbacks=[t_spr_mc, t_spr_log], verbose=verbose)
+
+        draw = Draw(output_dir=f"runs/{run_title}/plots/{bottleneck_sizes[0,k]}_{bottleneck_sizes[1,k]}")
 
         teacher = keras.models.load_model(f"runs/{run_title}/models/teacher_{bottleneck_sizes[0,k]}")
         teachers_scn = [keras.models.load_model(f"runs/{run_title}/models/teacher_scn_{i+1}_{bottleneck_sizes[1,k]}") for i in range(3)]
@@ -152,19 +159,19 @@ def run_training(
 
         print("Starting evaluation... plotting loss curves")
         # Plotting loss curves
-        log = pd.read_csv(f"runs/{run_title}/models/teacher_{bottleneck_sizes[0,k]}/training.log")
-        draw.plot_loss_history(log["loss"], log["val_loss"], "teacher_training_history", ylim[1,3])
+        '''log = pd.read_csv(f"runs/{run_title}/models/teacher_{bottleneck_sizes[0,k]}/training.log")
+        draw.plot_loss_history(log["loss"], log["val_loss"], "teacher_training_history", ylim=[1,3])
         log = []
         for i in range(3):
             log.append(pd.read_csv(f"runs/{run_title}/models/teacher_scn_{i+1}_{bottleneck_sizes[1,k]}/training.log"))
-            draw.plot_loss_history(log[i]["loss"], log[i]["val_loss"], f"teacher_scn_{i+1}_training_history", ylim[1,3])
-        draw.plot_loss_history(np.sum([log[0]["loss"], log[1]["loss"], log[2]["loss"]], axis = 0), np.sum([log[0]["val_loss"], log[1]["val_loss"], log[2]["val_loss"]], axis = 0), "teacher_scn_training_history_sum", ylim[1,3])
+            draw.plot_loss_history(log[i]["loss"], log[i]["val_loss"], f"teacher_scn_{i+1}_training_history", ylim=[1,3])
+        draw.plot_loss_history(np.sum([log[0]["loss"], log[1]["loss"], log[2]["loss"]], axis = 0), np.sum([log[0]["val_loss"], log[1]["val_loss"], log[2]["val_loss"]], axis = 0), "teacher_scn_training_history_sum", ylim=[1,3])
         draw.plot_multiple_loss_history([[log[0]["loss"], log[0]["val_loss"], f"teacher_scn_0"],
                                          [log[1]["loss"], log[1]["val_loss"], f"teacher_scn_1"],
                                          [log[2]["loss"], log[2]["val_loss"], f"teacher_scn_2"]],
-                                         "teacher_scn_training_history_overlay", ylim[1,3])
+                                         "teacher_scn_training_history_overlay", ylim=[1,3])
         log = pd.read_csv(f"runs/{run_title}/models/teacher_spr_{bottleneck_sizes[2,k]}/training.log")
-        draw.plot_loss_history(log["loss"], log["val_loss"], "teacher_spr_training_history", ylim[1,3])
+        draw.plot_loss_history(log["loss"], log["val_loss"], "teacher_spr_training_history", ylim=[1,3])'''
 
         print("Finished plotting loss curves... plotting reconstruction examples")
         # Plotting reconstruction examples
@@ -204,10 +211,11 @@ def run_training(
             tmp += int(X_test_len[i])
         for i in range(len(model_names_short)):
             for j in range(len(signal_names)):
-                mse[i,j,k] = np.mean(y_loss[i][j])
-        for i in range(10):
+                mse[i,j,k,0] = np.mean(y_loss[i][j])
+                mse[i,j,k,1] = np.std(y_loss[i][j])
+        '''for i in range(10):
             for j in range(3):
-                draw.plot_reconstruction_results(np.array([X_test[0][i]]), np.array([y_pred[j][0][i]]), loss=y_loss[j][0][i], name=f"comparison_background_{model_names_short[j]}_{i}")
+                draw.plot_reconstruction_results(np.array([X_test[0][i]]), np.array([y_pred[j][0][i]]), loss=y_loss[j][0][i], name=f"comparison_background_{model_names_short[j]}_{i}")'''
 
         print("Finished plotting reconstruction examples... plotting roc curves")
         # Declaring lists to be used in roc curve
@@ -222,10 +230,10 @@ def run_training(
         for i in range(len(model_names_short)):
             draw.plot_roc_curve(y_true, y_pred_roc[i], signal_names, inputs, f"teacher_{model_names_short[i]}")
         for i in range(len(signal_names)-1):
-            draw.plot_roc_curve([y_true[i],y_true[i],y_true[i]], y_pred_roc_sig[i+1], model_names_long, [inputs[i],inputs[i],inputs[i]], f"signal_{signal_names[i]}")
+            auc[:,i,k,:] = draw.plot_roc_curve([y_true[i],y_true[i],y_true[i]], y_pred_roc_sig[i+1], model_names_long, [inputs[i],inputs[i],inputs[i]], f"signal_{signal_names[i+1]}")
         print("Finished plotting roc curves... plotting anomaly score distribution")
         # Declaring dicts to be used in anomaly score distribution
-        results, results_sig = [dict(), dict(), dict()], [dict(), dict(), dict(), dict(), dict(), dict()]
+        '''results, results_sig = [dict(), dict(), dict()], [dict(), dict(), dict(), dict(), dict(), dict()]
         list_results, list_results_sig = [], []
         for i in range(3):
             for j in range(len(signal_names)):
@@ -238,31 +246,33 @@ def run_training(
             list_results_sig.append(list(results_sig[i].values()))
             draw.plot_anomaly_score_distribution(list_results_sig[i], [*results_sig[i]], f"anomaly_score_signal_{signal_names[i]}", xlim=[0,256])
         print("Finished plotting anomaly score distribution... plotting scatter plots and finding score correlations")
-        # Score scatter plot
-        scatter_fit = [[], []]
+        # Anomaly score comparison statistics
+        corr, scatter_fit, emd = [[], []], [[], []], [[], []]
         for i in range(len(signal_names)):
             for j in range(2):
+                corr[j].append(np.corrcoef(y_loss[0][i], y_loss[j+1][i]))
                 scatter_fit[j].append(draw.plot_scatter_score_comparison(np.sqrt(y_loss[0][i]), np.sqrt(y_loss[j+1][i]), f"{model_names_short[0]}", f"{model_names_short[j+1]}", f"{model_names_short[0]}_{model_names_short[j+1]}_{signal_names[i]}", limits="equalsignal"))
-        # Pearson correlation, mse
-        corr = [np.array([]), np.array([])]
-        for i in range(len(signal_names)):
-            for j in range(2):
-                corr[j] = np.append(corr[j], np.corrcoef(y_loss[0][i], y_loss[j+1][i]))
-        f = open(f"runs/{run_title}/plots/{bottleneck_sizes[0,k]}_{bottleneck_sizes[1,k]}/correlation.txt", "w")
+                emd[j].append(wasserstein_distance(np.sqrt(y_loss[0][i]), np.sqrt(y_loss[j+1][i])))
+        score_dist = draw.plot_score_comparison_distributions(y_loss, f"Difference", f"Frequency", name="tea", limits="equalsignal")
+
+        f = open(f"runs/{run_title}/plots/{bottleneck_sizes[0,k]}_{bottleneck_sizes[1,k]}/summary.txt", "w")
         f.write(f"Trained on {X_train.shape[0]} events\n")
         for i in range(len(signal_names)):
             for j in range(2):
-                f.write(f"{model_names_short[j+1]}_corr_{signal_names[i]}:\n{corr[j][i]}\n")
-                f.write(f"M: {scatter_fit[j][i]}\n")
-        t2=time.time()
-        f.write(f"Total time: {t2-t1}\n")
-        f.close()
+                f.write(f"{model_names_short[j+1]}_{signal_names[i]}:\n")
+                f.write(f"corr: {corr[j][i]}\n")
+                f.write(f"M: {scatter_fit[j][i][0]}\n")
+                f.write(f"s: {score_dist[j][i][0]}\n")
+                f.write(f"mu: {score_dist[j][i][1]}\n")
+                f.write(f"emd: {emd[j][i]}\n")
+        f.close()'''
 
     draw = Draw(output_dir=f"runs/{run_title}/plots")
     draw.plot_mse(mse, bottleneck_sizes)
+    draw.plot_auc(auc, bottleneck_sizes)
     f = open(f"runs/{run_title}/correlation.txt", "w")
-    t3=time.time()
-    f.write(f"Total time: {t3-t0}\n")
+    t1=time.time()
+    f.write(f"Total time: {t1-t0}\n")
     f.close()
 
 def parse_arguments():

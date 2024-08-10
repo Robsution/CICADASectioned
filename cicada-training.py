@@ -22,10 +22,11 @@ from tensorflow import data
 from tensorflow import keras
 from tensorflow.keras import Model
 from tensorflow.keras.callbacks import ModelCheckpoint, CSVLogger
+from tensorflow.keras.models import load_model
 from tensorflow.keras.optimizers import Adam
 from typing import List
 from utils import IsValidFile
-#from huggingface_hub import from_pretrained_keras
+from scipy.stats import wasserstein_distance
 
 from qkeras import *
 from tqdm import tqdm
@@ -58,8 +59,8 @@ def get_student_targets(
 
 def train_model(
     model: Model,
-    gen_train: tf.data.Dataset,
-    gen_val: tf.data.Dataset,
+    gen_train: data.Dataset,
+    gen_val: data.Dataset,
     epoch: int = 1,
     steps: int = 1,
     callbacks=None,
@@ -83,10 +84,8 @@ def run_training(
 
     t0=time.time()
 
-    if search:
-        run_title = f"{run_title}_epochs_{epochs}_data_{data_to_use}_search"
-    else:
-        run_title = f"{run_title}_epochs_{epochs}_data_{data_to_use}_lambda_{Lambda[0]}_{Lambda[1]}_filters_{filters[0]}_{filters[1]}_{filters[2]}"
+    if search: run_title = f"{run_title}_epochs_{epochs}_data_{data_to_use}_search"
+    else: run_title = f"{run_title}_epochs_{epochs}_data_{data_to_use}_lambda_{Lambda[0]}_{Lambda[1]}_filters_{filters[0]}_{filters[1]}_{filters[2]}"
     draw = Draw(output_dir=f"runs/{run_title}/plots")
 
     datasets_background = [i["path"] for i in config["background"] if i["use"]]
@@ -104,8 +103,7 @@ def run_training(
 
     X_test = [X_test]
     for i in range(len(datasets_signal)):
-        X_train_tmp, X_val_tmp, X_test_tmp = gen.get_data_split([datasets_signal[i]], 1.0)
-        X_tmp = np.concatenate((X_train_tmp, X_val_tmp, X_test_tmp), axis=0)
+        X_tmp = np.concatenate(gen.get_data_split([datasets_signal[i]], 1.0), axis=0)
         X_test.append(X_tmp)
 
     gen_train = gen.get_generator(X_train, X_train, 512, True)
@@ -176,7 +174,7 @@ def run_training(
         else:
             teacher = TeacherAutoencoder((18, 14, 1), Lambda=[0.0, 0.0], filters=[20, 30, 80], pooling = (2, 2), search=False, compile=False, name="teacher").get_model(hp=None)
             teachers_scn = [TeacherScnAutoencoder((6, 14, 1), Lambda=Lambda, filters=filters, pooling = pooling, search=False, compile=False, name=f"teacher_scn_{i+1}").get_model(hp=None) for i in range(3)]
-            teacher_spr = TeacherScnAutoencoder((6, 14, 1), Lambda=Lambda, filters=filters, pooling = pooling, search=False, compile=False, name=f"teacher_spr").get_model(hp=None)
+            teacher_spr = TeacherScnAutoencoder((6, 14, 1), Lambda=Lambda, filters=filters, pooling = pooling, search=False, compile=False, name="teacher_spr").get_model(hp=None)
 
         t2=time.time()
 
@@ -185,8 +183,8 @@ def run_training(
         t_log = CSVLogger(f"runs/{run_title}/models/{teacher.name}/training.log", append=True)
 
         for i in range(3): teachers_scn[i].compile(optimizer=Adam(learning_rate=0.001), loss="mse")
-        ts_scn_mc = [ModelCheckpoint(f"runs/{run_title}/models/teacher_scn_{i+1}", save_best_only=True) for i in range(3)]
-        ts_scn_log = [CSVLogger(f"runs/{run_title}/models/teacher_scn_{i+1}/training.log", append=True) for i in range(3)]
+        ts_scn_mc = [ModelCheckpoint(f"runs/{run_title}/models/{teachers_scn[i].name}", save_best_only=True) for i in range(3)]
+        ts_scn_log = [CSVLogger(f"runs/{run_title}/models/{teachers_scn[i].name}/training.log", append=True) for i in range(3)]
 
         teacher_spr.compile(optimizer=Adam(learning_rate=0.001), loss="mse")
         t_spr_mc = ModelCheckpoint(f"runs/{run_title}/models/{teacher_spr.name}", save_best_only=True)
@@ -268,20 +266,21 @@ def run_training(
     X_all_test = np.concatenate((X_test), axis=0)
     y_pred_cic = teacher.predict(X_all_test, batch_size=512, verbose=verbose)
     y_loss_cic = loss(X_all_test, y_pred_cic)
-    X_scn_reshape = np.zeros((X_all_test.shape[0]*3,6,14,1))
-    for i in range(X_all_test.shape[0]):
-        for j in range(3):
-            X_scn_reshape[i*3+j] = X_all_test[i, j*6:j*6+6]
-    y_scn_reshape = teachers_scn[j].predict(X_scn_reshape, batch_size=512, verbose=verbose)
-    y_spr_reshape = teacher_spr.predict(X_scn_reshape, batch_size=512, verbose=verbose)
+    X_scn_reshape = np.zeros((3,X_all_test.shape[0],6,14,1))
+    y_scn_reshape = np.zeros((3,X_all_test.shape[0],6,14,1))
+    y_spr_reshape = np.zeros((3,X_all_test.shape[0],6,14,1))
+    for i in range(3):
+        X_scn_reshape[i] = X_all_test[:, i*6:i*6+6]
+        y_scn_reshape[i] = teachers_scn[i].predict(np.array(X_scn_reshape[i]), batch_size=512, verbose=verbose)
+        y_spr_reshape[i] = teacher_spr.predict(np.array(X_scn_reshape[i]), batch_size=512, verbose=verbose)
     y_pred_scn = np.zeros((X_all_test.shape[0], 18, 14, 1))
     y_pred_spr = np.zeros((X_all_test.shape[0], 18, 14, 1))
     for i in range(X_all_test.shape[0]):
         y_scn_tmp = np.zeros((18, 14, 1))
         y_spr_tmp = np.zeros((18, 14, 1))
         for j in range(3):
-            y_scn_tmp[j*6:j*6+6] = y_scn_reshape[i*3+j]
-            y_spr_tmp[j*6:j*6+6] = y_spr_reshape[i*3+j]
+            y_scn_tmp[j*6:j*6+6] = y_scn_reshape[j][i]
+            y_spr_tmp[j*6:j*6+6] = y_spr_reshape[j][i]
         y_pred_scn[i] = y_scn_tmp
         y_pred_spr[i] = y_spr_tmp
     y_loss_scn = loss(X_all_test, y_pred_scn)
@@ -296,14 +295,14 @@ def run_training(
         y_loss[1].append(y_loss_scn[int(tmp):int(tmp+X_test_len[i])])
         y_loss[2].append(y_loss_spr[int(tmp):int(tmp+X_test_len[i])])
         tmp += int(X_test_len[i])
+        # y_loss has shape (3, 6, nEvents)
     for i in range(10):
        for j in range(3):
            draw.plot_reconstruction_results(np.array([X_test[0][i]]), np.array([y_pred[j][0][i]]), loss=y_loss[j][0][i], name=f"comparison_background_{model_names_short[j]}_{i}")
 
     print("Finished plotting reconstruction examples... plotting roc curves")
     # Declaring lists to be used in roc curve
-    y_true, inputs, y_pred_roc = [], [], [[], [], []]
-    y_pred_roc_sig = [[], [], [], [], [], []]
+    y_true, inputs, y_pred_roc, y_pred_roc_sig = [], [], [[], [], []], [[], [], [], [], [], []]
     for i in range(1, len(signal_names)):
         inputs.append(np.concatenate((X_test[i], X_test[0])))
         y_true.append(np.concatenate((np.ones(int(X_test_len[i])), np.zeros(int(X_test_len[0])))))
@@ -313,7 +312,7 @@ def run_training(
     for i in range(len(model_names_short)):
         draw.plot_roc_curve(y_true, y_pred_roc[i], signal_names, inputs, f"teacher_{model_names_short[i]}")
     for i in range(len(signal_names)-1):
-        draw.plot_roc_curve([y_true[i],y_true[i],y_true[i]], y_pred_roc_sig[i+1], model_names_long, [inputs[i],inputs[i],inputs[i]], f"signal_{signal_names[i]}")
+        draw.plot_roc_curve([y_true[i],y_true[i],y_true[i]], y_pred_roc_sig[i+1], model_names_long, [inputs[i],inputs[i],inputs[i]], f"signal_{signal_names[i+1]}")
 
     print("Finished plotting roc curves... plotting anomaly score distribution")
     # Declaring dicts to be used in anomaly score distribution
@@ -331,22 +330,25 @@ def run_training(
         list_results_sig.append(list(results_sig[i].values()))
         draw.plot_anomaly_score_distribution(list_results_sig[i], [*results_sig[i]], f"anomaly_score_signal_{signal_names[i]}", xlim=[0,256])
     print("Finished plotting anomaly score distribution... plotting scatter plots and finding score correlations")
-    # Score scatter plot
-    scatter_fit = [[], []]
+    # Anomaly score comparison statistics
+    corr, scatter_fit, emd = [[], []], [[], []], [[], []]
     for i in range(len(signal_names)):
         for j in range(2):
-            scatter_fit[j].append(draw.plot_scatter_score_comparison(np.sqrt(y_loss[0][i]), np.sqrt(y_loss[j+1][i]), f"{model_names_short[0]}", f"{model_names_short[j+1]}", f"{model_names_short[0]}_{model_names_short[j+1]}_{signal_names[i]}", limits="equalsignal"))
-    # Pearson correlation, mse
-    corr = [np.array([]), np.array([])]
-    for i in range(len(signal_names)):
-        for j in range(2):
-            corr[j] = np.append(corr[j], np.corrcoef(y_loss[0][i], y_loss[j+1][i]))
-    f = open(f"runs/{run_title}/correlation.txt", "w")
+            corr[j].append(np.corrcoef(y_loss[0][i], y_loss[j+1][i]))
+            scatter_fit[j].append(draw.plot_scatter_score_comparison(np.sqrt(y_loss[0][i]), np.sqrt(y_loss[j+1][i]), f"{model_names_short[0]} score (sqrt)", f"{model_names_short[j+1]} score (sqrt)", f"{model_names_short[0]}_{model_names_short[j+1]}_{signal_names[i]}", limits="equalsignal"))
+            emd[j].append(wasserstein_distance(np.sqrt(y_loss[0][i]), np.sqrt(y_loss[j+1][i])))
+    score_dist = draw.plot_score_comparison_distributions(y_loss, f"Difference", f"Frequency", "teacher", limits="equalsignal")
+
+    f = open(f"runs/{run_title}/summary.txt", "w")
     f.write(f"Trained on {X_train.shape[0]} events\n")
     for i in range(len(signal_names)):
         for j in range(2):
-            f.write(f"{model_names_short[j+1]}_corr_{signal_names[i]}:\n{corr[j][i]}\n")
-            f.write(f"M: {scatter_fit[j][i]}\n")
+            f.write(f"{model_names_short[j+1]}_{signal_names[i]}:\n")
+            f.write(f"corr: {corr[j][i]}\n")
+            f.write(f"M: {scatter_fit[j][i][0]}\n")
+            f.write(f"s: {score_dist[j][i][0]}\n")
+            f.write(f"mu: {score_dist[j][i][1]}\n")
+            f.write(f"emd: {emd[j][i]}\n")
 
     t4=time.time()
 
@@ -357,6 +359,10 @@ def run_training(
             f.write(f"Search time: {t2-t1}\n")
         f.write(f"Train time: {t3-t2}\n")
     f.write(f"Evaluation time: {t4-t3}\n")
+    #teacher.summary()
+    #for i in range(3):
+    #    teachers_scn[i].summary()
+    #teacher_spr.summary()
     f.close()
 
 def parse_arguments():

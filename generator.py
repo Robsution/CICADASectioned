@@ -35,22 +35,17 @@ class RegionETGenerator:
         inputs = []
         for dataset_path in datasets_paths:
             f = h5py.File(dataset_path, "r")
-            if "CaloRegions1" in f:
-                inputs_tmp = []
-                inputs_tmp.append(
-                    f["CaloRegions1"][:].astype("float32")
-                )
-                inputs_tmp.append(
-                    f["CaloRegions2"][:].astype("float32")
-                )
-                inputs_tmp.append(
-                    f["CaloRegions3"][:].astype("float32")
-                )
-                inputs.append(np.concatenate(inputs_tmp, axis=1))
-            elif "CaloRegions" in f:
+            if "CaloRegions" in f:
                 inputs.append(
-                    np.reshape(f["CaloRegions"][:].astype("float32"), (-1, 18, 14))
+                    f["CaloRegions"][:].astype("float32")
                 )
+            elif "CaloRegions1" in f:
+                inputs_tmp = []
+                for i in range(3):
+                    inputs_tmp.append(
+                        f[f"CaloRegions{i+1}"][:].astype("float32")
+                    )
+                inputs.append(np.concatenate(inputs_tmp, axis=1))
         X = np.concatenate(inputs)
         X = np.reshape(X, (-1, 18, 14, 1))
         return X
@@ -59,17 +54,7 @@ class RegionETGenerator:
         inputs = [[],[],[]]
         for dataset_path in datasets_paths:
             f = h5py.File(dataset_path, "r")
-            if "CaloRegions1" in f:
-                inputs[0].append(
-                    f["CaloRegions1"][:].astype("float32")
-                )
-                inputs[1].append(
-                    f["CaloRegions2"][:].astype("float32")
-                )
-                inputs[2].append(
-                    f["CaloRegions3"][:].astype("float32")
-                )
-            elif "CaloRegions" in f:
+            if "CaloRegions" in f:
                 inputs[0].append(
                     f["CaloRegions"][:,:6,:].astype("float32")
                 )
@@ -79,25 +64,25 @@ class RegionETGenerator:
                 inputs[2].append(
                     f["CaloRegions"][:,12:,:].astype("float32")
                 )
+            elif "CaloRegions1" in f:
+                for i in range(3):
+                    inputs[i].append(
+                        f[f"CaloRegions{i+1}"][:].astype("float32")
+                    )
         for i in range(3):
             inputs[i] = np.concatenate(inputs[i])
             inputs[i] = np.reshape(inputs[i], (-1, 6, 14, 1))
         return inputs
 
-        '''inputs = []
-        for dataset_path in datasets_paths:
-            inputs.append(
-                h5py.File(dataset_path, "r")["CaloRegions1"][:].astype("float32")
-            )
-            inputs.append(
-                h5py.File(dataset_path, "r")["CaloRegions2"][:].astype("float32")
-            )
-            inputs.append(
-                h5py.File(dataset_path, "r")["CaloRegions3"][:].astype("float32")
-            )
-        X = np.swapaxes(np.array(inputs), 0, 1)
-        X = np.reshape(X, (-1, 3, 6, 14, 1))
-        return X'''
+    def get_super_data(
+        self, datasets_paths: List[Path]) -> npt.NDArray:
+        X = self.get_sectioned_data(datasets_paths)
+        len = X[0].shape[0]
+        select = np.random.choice([0,1,2], (len))
+        X_tmp = np.zeros((len, 6, 14, 1))
+        for i in range(len): X_tmp[i] = X[select[i]][i]
+        X_tmp = np.reshape(X_tmp, (-1, 6, 14, 1))
+        return X_tmp
 
     def get_data_split(
         self, datasets_paths: List[Path], data_to_use: float

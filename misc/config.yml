@@ -63,7 +63,7 @@ background:
  - path:
    - '/afs/cern.ch/user/a/aji/public/CICADASectionedData/Background/ZB_RunA_0.h5'
    name: '2023 ZB Run A (lxplus afs)'
-   use: True
+   use: False
  - path:
    - '/afs/cern.ch/user/a/aji/public/CICADASectionedData/Background/ZB_RunB_0.h5'
    name: '2023 ZB Run B (lxplus afs)'
@@ -146,7 +146,11 @@ signal:
    use: True
 
 exposure:
+# training:
+#  - '/eos/project/c/cicada-project/data/2023/Signal/DummyOutliers-Training.h5'
+# validation:
+#  - '/eos/project/c/cicada-project/data/2023/Signal/DummyOutliers-Validation.h5'
  training:
-  - '/eos/project/c/cicada-project/data/2023/Signal/DummyOutliers-Training.h5'
+  - '/afs/cern.ch/user/a/aji/public/CICADASectionedData/Exposure/DummyOutliers-Training.h5'
  validation:
-  - '/eos/project/c/cicada-project/data/2023/Signal/DummyOutliers-Validation.h5'
+  - '/afs/cern.ch/user/a/aji/public/CICADASectionedData/Exposure/DummyOutliers-Validation.h5'

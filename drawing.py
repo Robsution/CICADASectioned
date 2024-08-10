@@ -12,6 +12,7 @@ from sklearn.metrics import roc_curve, auc
 from sklearn.model_selection import StratifiedKFold
 from typing import List
 from scipy.optimize import curve_fit
+from scipy.stats import norm
 
 
 class Draw:
@@ -291,6 +292,7 @@ class Draw:
         cv: int = 3,
     ):
         skf = StratifiedKFold(n_splits=cv, shuffle=True, random_state=42)
+        auc_return = []
         for y_true, y_pred, label, d in zip(
             y_trues, y_preds, labels, inputs
         ):
@@ -302,11 +304,10 @@ class Draw:
 
             fpr, tpr, _ = roc_curve(y_true, y_pred)
             roc_auc = auc(fpr, tpr)
+            auc_return.append([roc_auc, std_auc])
             fpr_base, tpr_base, _ = roc_curve(y_true, np.mean(d**2, axis=(1, 2)))
-            #label = label.split()[0]
             if label in self.signals_cmap: color = self.signals_cmap[label]
             elif label in self.models_cmap: color = self.models_cmap[label]
-
             plt.plot(
                 fpr * 28.61,
                 tpr,
@@ -346,6 +347,7 @@ class Draw:
             f"{self.output_dir}/roc_{self._parse_name(name)}.png", bbox_inches="tight"
         )
         plt.close()
+        return np.array(auc_return)
 
     def plot_compilation_error(
         self, scores_keras: npt.NDArray, scores_hls4ml: npt.NDArray, name: str
@@ -518,7 +520,9 @@ class Draw:
         self, x: npt.NDArray, y: npt.NDArray, x_title: str, y_title: str, name: str, limits: str = "fit"
     ):
         for signal in list(self.signals_cmap.keys()):
-            if signal in name: scatter_color = self.signals_cmap[signal]
+            if signal in name:
+                scatter_color = self.signals_cmap[signal]
+                label = signal
         x_tmp = np.array([])
         y_tmp = np.array([])
         for i in range(len(x)):
@@ -526,7 +530,7 @@ class Draw:
             y_tmp = np.append(y_tmp, y[i].flatten())
         x_tmp = np.reshape(x_tmp, (-1))
         y_tmp = np.reshape(y_tmp, (-1))
-        plt.scatter(x_tmp, y_tmp, s=1, color = scatter_color)
+        plt.scatter(x_tmp, y_tmp, s=1, color = scatter_color, label = label)
         if(limits=="equal"):
             max_val_x = np.sort(np.array([x_tmp, y_tmp]), axis=None)[int(-0.05 * (x_tmp.shape[0]+y_tmp.shape[0]))]
             max_val_y = max_val_x
@@ -536,6 +540,15 @@ class Draw:
         elif(limits=="equalsignal"):
             max_val_x = 16
             max_val_y = 16
+        elif(limits=="fitmax"):
+            max_val_x = np.max(np.array([x_tmp]))
+            max_val_y = np.max(np.array([y_tmp]))
+        elif(limits=="fitmaxequal"):
+            max_val_x = np.max(np.array([x_tmp, y_tmp]))
+            max_val_y = max_val_x
+        elif(limits=="equalstudent"):
+            max_val_x = 27
+            max_val_y = 27
         plt.xlim(0, max_val_x)
         plt.ylim(0, max_val_y)
         def f(x, m):
@@ -543,15 +556,62 @@ class Draw:
         popt, pcov = curve_fit(f, x_tmp, y_tmp)
         x_line = np.linspace(0, max_val_x)
         y_line = f(x_line, popt[0])
-        plt.plot(x_line, y_line, color = "black")
+        plt.plot(x_line, y_line, color = "black", label = f"m = {popt[0]:.2f}")
         plt.xlabel(x_title)
         plt.ylabel(y_title)
+        plt.legend()
         plt.savefig(
             f"{self.output_dir}/scatter_score_{self._parse_name(name)}.png",
             bbox_inches="tight",
         )
         plt.close()
         return popt
+
+    def plot_score_comparison_distributions(
+        self, x: npt.NDArray, x_title: str, y_title: str, name: str, limits: str = "equalsignal"
+    ):
+        if(limits=="equalsignal"):
+            xmax = 5
+            xmin = -5
+        #score_dist = [[], []]
+        diff = [[], []]
+        stats = [[], []]
+        for i in range(len(self.signals)):
+            for j in range(len(self.models_long)-1):
+                diff[j].append(np.array(x[j+1][i]) - np.array(x[0][i]))
+                stats[j].append(norm.fit(diff[j][-1]))
+                #score_dist[j].append([np.std(diff[j][-1]), np.mean(diff[j][-1])])
+        for i in range(len(self.signals)):
+            for j in range(len(self.models_long)-1):
+                color = self.models_cmap[self.models_long[j+1]]
+                label = f"{self.models_long[j+1]}-{self.models_long[0]}: mu = {stats[j][i][0]:.2f}, s = {stats[j][i][1]:.2f}"
+                #label = f"{self.models_long[j+1]}-{self.models_long[0]}: mu = {score_dist[j][i][1]:.2f}, s = {score_dist[j][i][0]:.2f}"
+                plt.hist(diff[j][i], alpha=0.5, bins=100, range=(xmin,xmax), density=1, histtype="step", color=color, label=label)
+            plt.ylim(0, 1.0)
+            plt.xlabel(x_title)
+            plt.ylabel(y_title)
+            plt.legend(loc="upper left")
+            plt.savefig(
+                f"{self.output_dir}/score_comparison_dist_{self.signals[i]}_{self._parse_name(name)}.png",
+                bbox_inches="tight",
+            )
+            plt.close()
+        for i in range(len(self.models_long)-1):
+            for j in range(len(self.signals)):
+                color = self.signals_cmap[self.signals[j]]
+                label = f"{self.signals[j]}: mu = {stats[i][j][0]:.2f}, s = {stats[i][j][1]:.2f}"
+                #label = f"{self.signals[j]}: mu = {score_dist[i][j][1]:.2f}, s = {score_dist[i][j][0]:.2f}"
+                plt.hist(diff[i][j], alpha=0.5, bins=100, range=(xmin,xmax), density=1, histtype="step", color=color, label=label)
+            plt.ylim(0, 1.0)
+            plt.xlabel(x_title)
+            plt.ylabel(y_title)
+            plt.legend(loc="center left", bbox_to_anchor=(1, 0.5))
+            plt.savefig(
+                f"{self.output_dir}/score_comparison_dist_{self.models_short[i+1]}_{self.models_short[0]}_{self._parse_name(name)}.png",
+                bbox_inches="tight",
+            )
+            plt.close()
+        return stats
 
     def plot_anomaly_scores_distribution(
         self, score_list: List[List[npt.NDArray]], label_list: List[str], name: str
@@ -599,10 +659,11 @@ class Draw:
     def plot_mse(
         self, mse: npt.NDArray, bottleneck_sizes: npt.NDArray,
     ):
-        # mse has shape (model type, signal type, bottleneck size)
+        # mse has shape (model type, signal type, bottleneck size, 2)
         for i in range(mse.shape[1]):
             for j in range(mse.shape[0]):
-                plt.plot(bottleneck_sizes[0], mse[j,i], color = self.models_cmap[self.models_long[j]], label = self.models_long[j])
+                plt.plot(bottleneck_sizes[0], mse[j,i,:,0], color = self.models_cmap[self.models_long[j]], label = self.models_long[j])
+                #plt.errorbar(bottleneck_sizes[0], mse[j,i,:,0], yerr = mse[j,i,:,1], color = self.models_cmap[self.models_long[j]], label = self.models_long[j])
             plt.title(f"MSE ({self.signals[i]}) vs Latent Space")
             plt.xlabel("Latent Space")
             plt.ylabel("MSE")
@@ -611,3 +672,44 @@ class Draw:
                 f"{self.output_dir}/mse_{self._parse_name(self.signals[i])}.png", bbox_inches="tight"
             )
             plt.close()
+        for i in range(mse.shape[0]):
+            for j in range(mse.shape[1]):
+                plt.plot(bottleneck_sizes[0], mse[i,j,:,0], color = self.signals_cmap[self.signals[j]], label = self.signals[j])
+                #plt.errorbar(bottleneck_sizes[0], mse[i,j,:,0], yerr = mse[i,j,:,1], color = self.signals_cmap[self.signals[j]], label = self.signals[j])
+            plt.title(f"MSE ({self.models_long[i]}) vs Latent Space")
+            plt.xlabel("Latent Space")
+            plt.ylabel("MSE")
+            plt.legend()
+            plt.savefig(
+                f"{self.output_dir}/mse_{self._parse_name(self.models_short[i])}.png", bbox_inches="tight"
+            )
+            plt.close()
+
+
+    def plot_auc(
+        self, auc: npt.NDArray, bottleneck_sizes: npt.NDArray,
+    ):
+        # auc has shape (signal type, model type, bottleneck size, 2)
+        for i in range(auc.shape[1]):
+            for j in range(auc.shape[0]):
+                plt.errorbar(bottleneck_sizes[0], auc[j,i,:,0], yerr = auc[j,i,:,1], color = self.models_cmap[self.models_long[j]], label = self.models_long[j])
+            plt.title(f"AUC ({self.signals[i]}) vs Latent Space")
+            plt.xlabel("Latent Space")
+            plt.ylabel("AUC")
+            plt.legend()
+            plt.savefig(
+                f"{self.output_dir}/AUC_{self._parse_name(self.signals[i+1])}.png", bbox_inches="tight"
+            )
+            plt.close()
+        for i in range(auc.shape[0]):
+            for j in range(auc.shape[1]):
+                plt.errorbar(bottleneck_sizes[0], auc[i,j,:,0], yerr = auc[i,j,:,1] , color = self.signals_cmap[self.signals[j+1]], label = self.signals[j+1])
+            plt.title(f"AUC ({self.models_long[i]}) vs Latent Space")
+            plt.xlabel("Latent Space")
+            plt.ylabel("AUC")
+            plt.legend()
+            plt.savefig(
+                f"{self.output_dir}/AUC_{self._parse_name(self.models_short[i])}.png", bbox_inches="tight"
+            )
+            plt.close()
+

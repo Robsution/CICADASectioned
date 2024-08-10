@@ -1,0 +1,5 @@
+Total time: 1679.036511182785
+Data/generator time: 14.55971097946167
+Teacher training time: 3.042269706726074
+Student training time: 5.016709089279175
+Evaluation time: 1656.4178214073181

@@ -163,10 +163,11 @@ class TeacherScnAutoencoder:
 '''
 
 class CicadaV1:
-    def __init__(self, input_shape: tuple):
+    def __init__(self, input_shape: tuple, name: str ="cv1"):
         self.input_shape = input_shape
+        self.name = name
 
-    def get_model(self, name="cicada-v1"):
+    def get_model(self):
         inputs = Input(shape=self.input_shape, name="inputs_")
         x = QDenseBatchnorm(
             16,
@@ -183,16 +184,53 @@ class CicadaV1:
             name="dense2",
         )(x)
         outputs = QActivation("quantized_relu(16, 8)", name="outputs")(x)
-        return Model(inputs, outputs, name=name)
+        return Model(inputs, outputs, name=self.name)
 
+class CicadaV1scn:
+    def __init__(self, input_shape: tuple, dense = [8], dropout = [0.1], search=False, compile=False, name: str = "cv1_scn"):
+        self.input_shape = input_shape
+        self.name = name
+        self.dense = dense[0]
+        self.dropout = dropout[0]
+        self.search = search
+        self.compile = compile
+
+    def get_model(self, hp):
+        if not self.search:
+            dense = self.dense
+            dropout = self.dropout
+        else:
+            dense = hp.Int("dense1", min_value=2, max_value=8., step=1)
+            dropout = hp.Float("dropout", min_value=1e-10, max_value=1., step=10, sampling="log")
+        inputs = Input(shape=self.input_shape, name="inputs_")
+        x = QDenseBatchnorm(
+            dense,
+            kernel_quantizer=quantized_bits(8, 1, 1, alpha=1.0),
+            bias_quantizer=quantized_bits(8, 3, 1, alpha=1.0),
+            name="dense1",
+        )(inputs)
+        x = QActivation("quantized_relu(10, 6)", name="relu1")(x)
+        x = Dropout(dropout)(x)
+        x = QDense(
+            1,
+            kernel_quantizer=quantized_bits(12, 3, 1, alpha=1.0),
+            use_bias=False,
+            name="dense2",
+        )(x)
+        outputs = QActivation("quantized_relu(16, 8)", name="outputs")(x)
+        model = Model(inputs, outputs, name=self.name)
+        if not self.compile: return model
+        model.compile(optimizer=Adam(learning_rate=0.001), loss="mae", metrics=[MeanAbsoluteError()])
+        return model
 
 class CicadaV2:
-    def __init__(self, input_shape: tuple):
+    def __init__(self, input_shape: tuple, name: str = "cv2"):
         self.input_shape = input_shape
+        self.name = name
 
-    def get_model(self, name="cicada-v2"):
+    def get_model(self, name="cv2"):
         inputs = Input(shape=self.input_shape, name="inputs_")
-        x = Reshape((6, 14, 1), name="reshape")(inputs)
+        x = Reshape((18, 14, 1), name="reshape")(inputs)
         x = QConv2D(
             4,
             (2, 2),
@@ -220,4 +258,62 @@ class CicadaV2:
             name="dense2",
         )(x)
         outputs = QActivation("quantized_relu(16, 8)", name="outputs")(x)
-        return Model(inputs, outputs, name=name)
+        return Model(inputs, outputs, name=self.name)
+
+class CicadaV2scn:
+    def __init__(self, input_shape: tuple, dense = [8], dropout = [0.1, 0.1], filters = [2], search=False, compile=False, name: str = "cv2_scn"):
+        self.input_shape = input_shape
+        self.name = name
+        self.filters = filters[0]
+        self.dropout1 = dropout[0]
+        self.dropout2 = dropout[1]
+        self.dense = dense[0]
+        self.search = search
+        self.compile = compile
+
+    def get_model(self, hp):
+        if not self.search:
+            dense = self.dense
+            dropout1 = self.dropout1
+            dropout2 = self.dropout2
+            filters = self.filters
+        else:
+            dense = [hp.Int("dense1", min_value=2, max_value=8, step=1)]
+            dropout = [hp.Float("dropout1", min_value=1e-10, max_value=1., step=10, sampling="log"),
+                       hp.Float("dropout2", min_value=1e-10, max_value=1., step=10, sampling="log")]
+            filters = [hp.Int("conv", min_value=1, max_value=2, step=1)]
+
+        inputs = Input(shape=self.input_shape, name="inputs_")
+        x = Reshape((6, 14, 1), name="reshape")(inputs)
+        x = QConv2D(
+            filters,
+            (2, 2),
+            strides=2,
+            padding="valid",
+            use_bias=False,
+            kernel_quantizer=quantized_bits(12, 3, 1, alpha=1.0),
+            name="conv",
+        )(x)
+        x = QActivation("quantized_relu(10, 6)", name="relu0")(x)
+        x = Flatten(name="flatten")(x)
+        x = Dropout(dropout1)(x)
+        x = QDenseBatchnorm(
+            dense,
+            kernel_quantizer=quantized_bits(8, 1, 1, alpha=1.0),
+            bias_quantizer=quantized_bits(8, 3, 1, alpha=1.0),
+            name="dense1",
+        )(x)
+        x = QActivation("quantized_relu(10, 6)", name="relu1")(x)
+        x = Dropout(dropout2)(x)
+        x = QDense(
+            1,
+            kernel_quantizer=quantized_bits(12, 3, 1, alpha=1.0),
+            use_bias=False,
+            name="dense2",
+        )(x)
+        outputs = QActivation("quantized_relu(16, 8)", name="outputs")(x)
+        model = Model(inputs, outputs, name=self.name)
+        if not self.compile: return model
+        model.compile(optimizer=Adam(learning_rate=0.001), loss="mae", metrics=[MeanAbsoluteError()])
+        return model
+
